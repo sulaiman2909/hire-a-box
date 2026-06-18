@@ -103,11 +103,12 @@ model OrderItem {
 }
 
 model Driver {
-  id       String  @id @default(uuid())
-  name     String
-  email    String
-  phone    String?
-  isActive Boolean @default(true)
+  id             String               @id @default(uuid())
+  name           String
+  email          String
+  phone          String?
+  city           String               @default("Unknown")
+  isActive       Boolean              @default(true)
 
   orders         Order[]
   availabilities DriverAvailability[]

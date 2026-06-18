@@ -42,11 +42,11 @@ async function main() {
 
   // 4. Create Drivers & Postcodes
   const drivers = [
-    { name: 'Driver 1', email: 'driver1@hireabox.example.com', postcodes: ['2000', '2079'] },
-    { name: 'Driver 2', email: 'driver2@hireabox.example.com', postcodes: ['2080', '2234'] },
-    { name: 'Driver 3', email: 'driver3@hireabox.example.com', postcodes: ['3000', '3207'] },
-    { name: 'Driver 4', email: 'driver4@hireabox.example.com', postcodes: ['6000', '6199'] },
-    { name: 'Driver 5', email: 'driver5@hireabox.example.com', postcodes: ['5000', '5199'] }
+    { name: 'Driver 1', email: 'driver1@hireabox.example.com', city: 'Sydney', postcodes: ['2000', '2079'] },
+    { name: 'Driver 2', email: 'driver2@hireabox.example.com', city: 'Sydney', postcodes: ['2080', '2234'] },
+    { name: 'Driver 3', email: 'driver3@hireabox.example.com', city: 'Melbourne', postcodes: ['3000', '3207'] },
+    { name: 'Driver 4', email: 'driver4@hireabox.example.com', city: 'Perth', postcodes: ['6000', '6199'] },
+    { name: 'Driver 5', email: 'driver5@hireabox.example.com', city: 'Adelaide', postcodes: ['5000', '5199'] }
   ];
 
   for (const d of drivers) {
@@ -55,6 +55,7 @@ async function main() {
         name: d.name,
         email: d.email,
         phone: '0400000000',
+        city: d.city,
       }
     });
 
