@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
+  type         ProductType
+  hirePrice    Decimal     @db.Decimal(10, 2)
+  buyNewPrice  Decimal?    @db.Decimal(10, 2)
+  buyUsedPrice Decimal?    @db.Decimal(10, 2)
+  deposit      Decimal     @db.Decimal(10, 2)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  orderItems OrderItem[]
+}
+
+enum ProductType {
+  BOX
+  PACKAGE
+  EXTRA
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique // e.g. HAB-1001
+  type        OrderType // HIRE or BUY
+  status      OrderStatus @default(PENDING)
+
+  // Customer Details
+  customerName  String
+  customerEmail String
+  customerPhone String
+
+  // Delivery Details
+  deliveryAddress  String
+  deliverySuburb   String
+  deliveryPostcode String
+  deliveryDate     DateTime @db.Date
+  deliverySlot     String // e.g. "08:00-10:00"
+
+  // Financials
+  hireTotal    Decimal @default(0) @db.Decimal(10, 2)
+  buyTotal     Decimal @default(0) @db.Decimal(10, 2)
+  depositTotal Decimal @default(0) @db.Decimal(10, 2)
+  grandTotal   Decimal @default(0) @db.Decimal(10, 2)
+
+  // Relations
+  driverId String?
+  driver   Driver? @relation(fields: [driverId], references: [id])
+
+  items     OrderItem[]
+  refunds   Refund[]
+  emailLogs EmailLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OrderType {
+  HIRE
+  BUY
+}
+
+enum OrderStatus {
+  PENDING
+  UNALLOCATED
+  ALLOCATED
+  DELIVERED
+  COLLECTED
+  CANCELLED
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity      Int
+  price         Decimal @db.Decimal(10, 2) // Locked in at time of order
+  depositAmount Decimal @db.Decimal(10, 2) // Locked in at time of order
+  isUsed        Boolean @default(false)
+}
+
+model Driver {
+  id       String  @id @default(uuid())
+  name     String
+  email    String
+  phone    String?
+  isActive Boolean @default(true)
+
+  orders         Order[]
+  availabilities DriverAvailability[]
+  postcodes      PostcodeMapping[]
+}
+
+model DriverAvailability {
+  id       String   @id @default(uuid())
+  driverId String
+  driver   Driver   @relation(fields: [driverId], references: [id])
+  date     DateTime @db.Date
+  timeSlot String
+  status   String   @default("UNAVAILABLE")
+}
+
+model PostcodeMapping {
+  id       String @id @default(uuid())
+  postcode String @unique
+  driverId String
+  driver   Driver @relation(fields: [driverId], references: [id])
+}
+
+model EmailLog {
+  id           String   @id @default(uuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id])
+  toEmail      String
+  templateType String // CLIENT_CONFIRMATION, DRIVER_NOTIFICATION
+  status       String // SUCCESS, FAILED
+  sentAt       DateTime @default(now())
+}
+
+model Refund {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  amount      Decimal  @db.Decimal(10, 2)
+  reason      String // e.g. PARTIAL_RETURN
+  processedAt DateTime @default(now())
+}
