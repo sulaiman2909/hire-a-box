@@ -1,105 +1,100 @@
-'use client';
+import { PrismaClient, ProductRole } from '@prisma/client';
+import BuyClientPage from './BuyClientPage';
 
-import { useState } from 'react';
-import ProductCard from '@/components/customer/ProductCard';
-import CartSummary from '@/components/customer/CartSummary';
-import { calculateOrderTotals, FREE_DELIVERY_THRESHOLD_BUY } from '@/lib/domain/pricing';
+const prisma = new PrismaClient();
 
-// Mock data for prototype
-const BUY_PRODUCTS = [
-  { id: '1', name: 'Medium Moving Box', description: 'Best for heavy items like books and tools.', price: 2.95, depositAmount: 0 },
-  { id: '2', name: 'Large Moving Box', description: 'Best for bulky, lighter items like linens and toys.', price: 3.95, depositAmount: 0 },
-  { id: '3', name: 'Packing Tape', description: 'Heavy duty clear packing tape.', price: 4.50, depositAmount: 0 },
-  { id: '4', name: 'Bubble Wrap', description: '10m roll for wrapping fragile items.', price: 15.00, depositAmount: 0 },
-];
+export const dynamic = 'force-dynamic';
 
-export default function BuyPage() {
-  const [cart, setCart] = useState<{ [key: string]: number }>({});
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const handleQuantityChange = (id: string, qty: number) => {
-    setCart(prev => {
-      const newCart = { ...prev, [id]: qty };
-      // Automatically open drawer if it's the first item added
-      const prevTotal = Object.values(prev).reduce((a, b) => a + b, 0);
-      const newTotal = Object.values(newCart).reduce((a, b) => a + b, 0);
-      if (prevTotal === 0 && newTotal > 0) {
-        setIsDrawerOpen(true);
+export default async function BuyPage() {
+  const products = await prisma.product.findMany({
+    where: { 
+      isActive: true,
+      OR: [
+        { availableForBuy: true },
+        { role: ProductRole.ADDON },
+        { role: ProductRole.PACKAGE }
+      ]
+    },
+    include: {
+      packageContents: {
+        include: {
+          product: true
+        }
       }
-      return newCart;
-    });
+    },
+    orderBy: { buyPriceNew: 'asc' }
+  });
+
+  const serializeProduct = (p: typeof products[0]) => {
+    let computedBuyPriceNew = p.buyPriceNew ? Number(p.buyPriceNew) : 0;
+
+    if (p.role === ProductRole.PACKAGE) {
+      computedBuyPriceNew = p.packageContents.reduce((sum, item) => {
+        // Buy packages use the USED price for core boxes, and NEW price for addons
+        const priceToUse = item.product.buyPriceUsed !== null 
+          ? Number(item.product.buyPriceUsed) 
+          : Number(item.product.buyPriceNew);
+        return sum + (priceToUse * item.quantity);
+      }, 0);
+    }
+
+    const { packageContents, ...rest } = p;
+
+    return {
+      id: rest.id,
+      name: rest.name,
+      description: rest.description,
+      role: rest.role,
+      availableForHire: rest.availableForHire,
+      availableForBuy: rest.availableForBuy,
+      hirePrice: rest.hirePrice !== null ? Number(rest.hirePrice) : null,
+      buyPriceNew: computedBuyPriceNew,
+      buyPriceUsed: rest.buyPriceUsed !== null ? Number(rest.buyPriceUsed) : null,
+      depositPerUnit: 0, // CRITICAL: Buying never requires a deposit
+      dimensions: rest.dimensions,
+      spec: rest.spec,
+      isActive: rest.isActive,
+      createdAt: rest.createdAt,
+      updatedAt: rest.updatedAt,
+      contents: p.packageContents.map(pc => ({
+        productId: pc.product.id,
+        name: pc.product.name,
+        quantity: pc.quantity,
+        buyPriceNew: Number(pc.product.buyPriceNew),
+        buyPriceUsed: pc.product.buyPriceUsed !== null ? Number(pc.product.buyPriceUsed) : null,
+        depositPerUnit: 0 // No deposits for buy
+      }))
+    };
   };
 
-  const itemsForDomain = BUY_PRODUCTS.map(p => ({
-    quantity: cart[p.id] || 0,
-    price: p.price,
-    depositAmount: 0
-  })).filter(item => item.quantity > 0);
+  // Ensure packages only contain ones where contents exist or are appropriately defined
+  const packages = products
+    .filter(p => p.role === ProductRole.PACKAGE)
+    .map(serializeProduct)
+    .sort((a, b) => a.buyPriceNew - b.buyPriceNew);
 
-  const totals = calculateOrderTotals('BUY', itemsForDomain);
-  const subtotal = itemsForDomain.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-  const totalItems = itemsForDomain.reduce((sum, item) => sum + item.quantity, 0);
+  const individualItems = products
+    .filter(p => p.role === ProductRole.CORE_PRODUCT)
+    .map(serializeProduct)
+    .sort((a, b) => (a.buyPriceNew || 0) - (b.buyPriceNew || 0));
+
+  const essentials = products
+    .filter(p => p.role === ProductRole.ADDON)
+    .map(serializeProduct)
+    .sort((a, b) => (a.buyPriceNew || 0) - (b.buyPriceNew || 0));
 
   return (
-    <div className="container" style={{ padding: '4rem 1.5rem', display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
-      
-      <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>Buy Moving Supplies</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
-          Brand new boxes and packing supplies delivered straight to your door. Yours to keep.
+    <div className="max-w-[1360px] mx-auto px-6 py-16">
+      <div className="text-center mb-16">
+        <h1 className="text-4xl md:text-5xl font-heading font-bold text-[var(--color-brand-charcoal)] mb-6">
+          Buy Moving Boxes & Supplies
+        </h1>
+        <p className="text-lg opacity-80 max-w-2xl mx-auto font-sans font-medium">
+          Need boxes permanently? We offer new and used durable moving boxes alongside all the packing materials you'll need.
         </p>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '2rem',
-        alignContent: 'start',
-        paddingBottom: '6rem'
-      }}>
-        {BUY_PRODUCTS.map(p => (
-          <ProductCard
-            key={p.id}
-            id={p.id}
-            name={p.name}
-            description={p.description}
-            price={p.price}
-            quantity={cart[p.id] || 0}
-            onQuantityChange={handleQuantityChange}
-          />
-        ))}
-      </div>
-
-      {/* Floating View Cart Button */}
-      {totalItems > 0 && (
-        <button
-          onClick={() => setIsDrawerOpen(true)}
-          className="btn-primary"
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            right: '2rem',
-            zIndex: 90,
-            padding: '1rem 2rem',
-            fontSize: '1.1rem',
-            boxShadow: 'var(--shadow-lg)'
-          }}
-        >
-          🛒 View Cart ({totalItems})
-        </button>
-      )}
-
-      {/* Cart Summary Drawer */}
-      <CartSummary
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        subtotal={subtotal}
-        deliveryFee={totals.deliveryFee}
-        total={totals.saleTotal}
-        threshold={FREE_DELIVERY_THRESHOLD_BUY}
-        onCheckout={() => alert('Proceeding to Checkout...')}
-        isValid={totalItems > 0}
-      />
+      <BuyClientPage packages={packages} individualItems={individualItems} essentials={essentials} />
     </div>
   );
 }
