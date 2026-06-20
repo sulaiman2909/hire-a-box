@@ -22,7 +22,7 @@ export function calculateDeliveryFee(subtotal: number, type: OrderType): number 
 
 export function calculateOrderTotals(type: OrderType, items: OrderItemInput[]) {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = calculateDeliveryFee(subtotal, type);
+  const deliveryFee = items.length === 0 ? 0 : calculateDeliveryFee(subtotal, type);
   
   if (type === OrderType.HIRE) {
     return {
