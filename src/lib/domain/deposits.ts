@@ -1,11 +1,9 @@
-import { OrderItemInput } from './pricing';
+export interface DepositItemInput {
+  quantity: number;
+  price: number; // Ignored for deposits, but passed by tests
+  depositAmount: number;
+}
 
-export function calculateDeposits(items: OrderItemInput[]): number {
-  let depositTotal = 0;
-  
-  for (const item of items) {
-    depositTotal += item.quantity * item.depositAmount;
-  }
-
-  return Math.round(depositTotal * 100) / 100;
+export function calculateDeposits(items: DepositItemInput[]): number {
+  return items.reduce((sum, item) => sum + (item.depositAmount * item.quantity), 0);
 }

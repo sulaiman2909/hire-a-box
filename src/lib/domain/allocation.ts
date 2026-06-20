@@ -1,56 +1,64 @@
-import { isSlotAvailable } from './availability';
-
-export interface DriverData {
+export interface DriverProfile {
   id: string;
-  name: string;
   city: string;
   isActive: boolean;
-  postcodes: string[];
 }
 
-export const UNALLOCATED = "UNALLOCATED";
+export interface DriverAvailability {
+  driverId: string;
+  date: string;
+  timeSlot: string;
+  status: 'AVAILABLE' | 'UNAVAILABLE';
+}
 
-/**
- * Core business rule for auto-allocating a driver based on postcode failover logic.
- * The failover automatically applies to any city if there are multiple active drivers.
- * 
- * @param deliveryPostcode The postcode the customer is ordering to.
- * @param timeSlot The requested time slot (e.g. '08:00-10:00').
- * @param allDrivers List of all drivers with their managed postcodes.
- * @param existingBookings List of existing bookings for the requested DATE.
- * @returns driverId or "UNALLOCATED"
- */
+export interface PostcodeMapping {
+  postcode: string;
+  driverId: string;
+}
+
 export function allocateDriver(
-  deliveryPostcode: string,
-  timeSlot: string,
-  allDrivers: DriverData[],
-  existingBookings: { driverId: string; timeSlot: string }[]
-): string {
-  // 1. Find primary driver by postcode match
-  const primary = allDrivers.find(d => 
-    d.isActive && d.postcodes.includes(deliveryPostcode)
+  postcode: string,
+  targetDate: string,
+  targetSlot: string,
+  drivers: DriverProfile[],
+  mappings: PostcodeMapping[],
+  availabilities: DriverAvailability[]
+): string | 'UNALLOCATED' {
+  // 1. Lookup: Match postcode to a driver
+  const mapping = mappings.find(m => m.postcode === postcode);
+  if (!mapping) return 'UNALLOCATED';
+
+  const preferredDriver = drivers.find(d => d.id === mapping.driverId);
+  if (!preferredDriver) return 'UNALLOCATED';
+
+  // 2. Primary Check: is preferred driver active and available?
+  if (preferredDriver.isActive) {
+    const isAvailable = availabilities.some(
+      a => a.driverId === preferredDriver.id && 
+           a.date === targetDate && 
+           a.timeSlot === targetSlot && 
+           a.status === 'AVAILABLE'
+    );
+    if (isAvailable) return preferredDriver.id;
+  }
+
+  // 3. Failover Check: Find another active driver in the SAME city who IS available
+  const cityDrivers = drivers.filter(d => 
+    d.city === preferredDriver.city && 
+    d.isActive && 
+    d.id !== preferredDriver.id
   );
 
-  if (!primary) {
-    return UNALLOCATED; // No match - needs a human
+  for (const failover of cityDrivers) {
+    const failoverAvailable = availabilities.some(
+      a => a.driverId === failover.id && 
+           a.date === targetDate && 
+           a.timeSlot === targetSlot && 
+           a.status === 'AVAILABLE'
+    );
+    if (failoverAvailable) return failover.id;
   }
 
-  // 2. Check if primary driver is available
-  if (isSlotAvailable(primary.id, timeSlot, existingBookings)) {
-    return primary.id;
-  }
-
-  // 3. Primary blocked - failover to other active drivers in the same city
-  const cityDrivers = allDrivers.filter(
-    d => d.isActive && d.city === primary.city && d.id !== primary.id
-  );
-
-  for (const alt of cityDrivers) {
-    if (isSlotAvailable(alt.id, timeSlot, existingBookings)) {
-      return alt.id;
-    }
-  }
-
-  // 4. City matched, but nobody is free for that slot
-  return UNALLOCATED;
+  // 4. Fallback: No driver in city is available
+  return 'UNALLOCATED';
 }

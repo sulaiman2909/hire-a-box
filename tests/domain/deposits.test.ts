@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from 'vitest';
 import { calculateDeposits } from '../../src/lib/domain/deposits';
 
 test('calculateDeposits - sums correctly', () => {
@@ -10,5 +9,5 @@ test('calculateDeposits - sums correctly', () => {
   ];
   
   const total = calculateDeposits(items);
-  assert.equal(total, 15.00);
+  expect(total).toBe(15.00);
 });

@@ -1,21 +1,20 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from 'vitest';
 import { calculateOrderTotals, calculateDeliveryFee, FREE_DELIVERY_THRESHOLD_HIRE, FREE_DELIVERY_THRESHOLD_BUY, DELIVERY_FEE } from '../../src/lib/domain/pricing';
 import { OrderType } from '@prisma/client';
 
 test('calculateDeliveryFee - Hire below threshold', () => {
   const fee = calculateDeliveryFee(50.00, OrderType.HIRE);
-  assert.equal(fee, DELIVERY_FEE);
+  expect(fee).toBe(DELIVERY_FEE);
 });
 
 test('calculateDeliveryFee - Hire exactly at threshold', () => {
   const fee = calculateDeliveryFee(FREE_DELIVERY_THRESHOLD_HIRE, OrderType.HIRE);
-  assert.equal(fee, 0);
+  expect(fee).toBe(0);
 });
 
 test('calculateDeliveryFee - Buy above threshold', () => {
   const fee = calculateDeliveryFee(100.00, OrderType.BUY);
-  assert.equal(fee, 0);
+  expect(fee).toBe(0);
 });
 
 test('calculateOrderTotals - Hire applies correct totals', () => {
@@ -26,9 +25,9 @@ test('calculateOrderTotals - Hire applies correct totals', () => {
   
   const totals = calculateOrderTotals(OrderType.HIRE, items);
   
-  assert.equal(totals.saleTotal, 0);
-  assert.equal(totals.deliveryFee, DELIVERY_FEE);
-  assert.equal(totals.hireTotal, 25.50 + DELIVERY_FEE);
+  expect(totals.saleTotal).toBe(0);
+  expect(totals.deliveryFee).toBe(DELIVERY_FEE);
+  expect(totals.hireTotal).toBe(25.50 + DELIVERY_FEE);
 });
 
 test('calculateOrderTotals - Buy applies correct totals', () => {
@@ -38,7 +37,7 @@ test('calculateOrderTotals - Buy applies correct totals', () => {
   
   const totals = calculateOrderTotals(OrderType.BUY, items);
   
-  assert.equal(totals.hireTotal, 0);
-  assert.equal(totals.deliveryFee, 0); // > 99 threshold
-  assert.equal(totals.saleTotal, 100.00);
+  expect(totals.hireTotal).toBe(0);
+  expect(totals.deliveryFee).toBe(0); // > 99 threshold
+  expect(totals.saleTotal).toBe(100.00);
 });
