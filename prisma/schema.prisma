@@ -18,25 +18,45 @@ model AdminUser {
 }
 
 model Product {
-  id           String      @id @default(uuid())
-  name         String
-  description  String?
-  type         ProductType
-  hirePrice    Decimal     @db.Decimal(10, 2)
-  buyNewPrice  Decimal?    @db.Decimal(10, 2)
-  buyUsedPrice Decimal?    @db.Decimal(10, 2)
-  deposit      Decimal     @db.Decimal(10, 2)
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id               String       @id @default(uuid())
+  name             String
+  description      String?
+  role             ProductRole
+  
+  availableForHire Boolean      @default(false)
+  availableForBuy  Boolean      @default(false)
 
-  orderItems OrderItem[]
+  // Prices are GST-inclusive
+  hirePrice        Decimal?     @db.Decimal(10, 2)
+  buyPriceNew      Decimal?     @db.Decimal(10, 2)
+  buyPriceUsed     Decimal?     @db.Decimal(10, 2)
+  depositPerUnit   Decimal?     @db.Decimal(10, 2)
+  
+  dimensions       String?
+  spec             String?
+
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  orderItems       OrderItem[]
+  packageContents  PackageItem[] @relation("PackageContents")
+  includedIn       PackageItem[] @relation("IncludedInPackages")
 }
 
-enum ProductType {
-  BOX
+enum ProductRole {
   PACKAGE
-  EXTRA
+  CORE_PRODUCT
+  ADDON
+}
+
+model PackageItem {
+  id              String  @id @default(uuid())
+  packageId       String
+  package         Product @relation("PackageContents", fields: [packageId], references: [id])
+  productId       String
+  product         Product @relation("IncludedInPackages", fields: [productId], references: [id])
+  quantity        Int
 }
 
 model Order {
@@ -96,9 +116,9 @@ model OrderItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  quantity      Int
-  price         Decimal @db.Decimal(10, 2) // Locked in at time of order
-  depositAmount Decimal @db.Decimal(10, 2) // Locked in at time of order
+  quantity        Int
+  price           Decimal @db.Decimal(10, 2) // Locked in at time of order
+  depositPerUnit  Decimal @db.Decimal(10, 2) // Locked in at time of order
   isUsed        Boolean @default(false)
 }
 

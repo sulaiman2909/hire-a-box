@@ -1,10 +1,10 @@
-import { PrismaClient, ProductType } from '@prisma/client';
+import { PrismaClient, ProductRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding database...');
+  console.log('Seeding database with updated schema...');
 
   // 1. Admin User
   const salt = await bcrypt.genSalt(10);
@@ -20,57 +20,7 @@ async function main() {
     },
   });
 
-  // 2. Boxes
-  const boxes = [
-    { name: 'Large Tea Chest Box', type: ProductType.BOX, hirePrice: 4.35, buyNewPrice: 4.35, deposit: 2.50 },
-    { name: 'Medium Book Carton', type: ProductType.BOX, hirePrice: 3.25, buyNewPrice: 3.25, deposit: 1.60 },
-    { name: 'Port-a-robe', type: ProductType.BOX, hirePrice: 12.95, buyNewPrice: 12.95, deposit: 5.00 },
-  ];
-
-  for (const box of boxes) {
-    const existing = await prisma.product.findFirst({ where: { name: box.name } });
-    if (!existing) {
-      await prisma.product.create({ data: box });
-    }
-  }
-
-  // 3. Extras (Consumables)
-  const extras = [
-    { name: 'Tape Dispenser', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 12.00, deposit: 0 },
-    { name: 'Tape Roll', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 4.00, deposit: 0 },
-    { name: 'Wrapping Paper (5kg)', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 25.00, deposit: 0 },
-    { name: 'Bubblewrap (10m)', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 15.00, deposit: 0 },
-    { name: 'Protector Bags', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 8.00, deposit: 0 },
-    { name: 'Picture Box', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 8.50, deposit: 0 },
-    { name: 'Fragile Stickers', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 2.50, deposit: 0 },
-    { name: 'Marker Pen', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 3.00, deposit: 0 },
-    { name: 'Stanley Knife', type: ProductType.EXTRA, hirePrice: 0, buyNewPrice: 5.00, deposit: 0 },
-  ];
-
-  for (const extra of extras) {
-    const existing = await prisma.product.findFirst({ where: { name: extra.name } });
-    if (!existing) {
-      await prisma.product.create({ data: extra });
-    }
-  }
-
-  // 4. Packages
-  const packages = [
-    { name: '1-Bedroom Package', type: ProductType.PACKAGE, hirePrice: 155.25, buyNewPrice: 155.25, deposit: 0 },
-    { name: '2-Bedroom Package', type: ProductType.PACKAGE, hirePrice: 235.25, buyNewPrice: 235.25, deposit: 0 },
-    { name: '3-Bedroom Package', type: ProductType.PACKAGE, hirePrice: 364.35, buyNewPrice: 364.35, deposit: 0 },
-    { name: '4-Bedroom Package', type: ProductType.PACKAGE, hirePrice: 508.55, buyNewPrice: 508.55, deposit: 0 },
-    { name: '5-Bedroom Package', type: ProductType.PACKAGE, hirePrice: 601.50, buyNewPrice: 601.50, deposit: 0 },
-  ];
-
-  for (const pkg of packages) {
-    const existing = await prisma.product.findFirst({ where: { name: pkg.name } });
-    if (!existing) {
-      await prisma.product.create({ data: pkg });
-    }
-  }
-
-  // 5. Drivers
+  // 2. Drivers
   const driverData = [
     { email: 'driver1@hireabox.com.au', name: 'John Sydney', city: 'Sydney' },
     { email: 'driver2@hireabox.com.au', name: 'Mark Sydney West', city: 'Sydney' },
@@ -81,7 +31,7 @@ async function main() {
 
   for (const d of driverData) {
     await prisma.driver.upsert({
-      where: { id: d.email }, // Using email as proxy id for upsert would fail if id is uuid, but we'll findFirst
+      where: { id: d.email }, // Just finding by email logic, wait we use findFirst below
       update: {},
       create: d,
     });
@@ -94,7 +44,7 @@ async function main() {
   const perthDriver = drivers.find(d => d.email === 'driver4@hireabox.com.au');
   const adelDriver = drivers.find(d => d.email === 'driver5@hireabox.com.au');
 
-  // 6. Postcode Mappings (Sample ranges)
+  // 3. Postcode Mappings
   const mapPostcodes = async (driverId: string, postcodes: string[]) => {
     for (const pc of postcodes) {
       await prisma.postcodeMapping.upsert({
@@ -111,21 +61,19 @@ async function main() {
   if (perthDriver) await mapPostcodes(perthDriver.id, ['6000', '6004', '6005', '6014', '6100']);
   if (adelDriver) await mapPostcodes(adelDriver.id, ['5000', '5006', '5014', '5024', '5045']);
 
-  // 7. Time Slots (Next 7 days for all drivers)
+  // 4. Time Slots
   const timeSlots = ['08:00-10:00', '10:00-12:00', '12:00-14:00', '14:00-16:00'];
   const today = new Date();
   
   for (let i = 1; i <= 7; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
-    date.setHours(0, 0, 0, 0); // normalize date to midnight for DB storage
+    date.setHours(0, 0, 0, 0); 
     
-    // Skip weekends for basic seed
     if (date.getDay() === 0 || date.getDay() === 6) continue;
 
     for (const driver of drivers) {
       for (const slot of timeSlots) {
-        // Find existing to avoid duplicates since no unique constraint on (driverId, date, timeSlot)
         const existingSlot = await prisma.driverAvailability.findFirst({
           where: { driverId: driver.id, date, timeSlot: slot },
         });
@@ -141,6 +89,223 @@ async function main() {
           });
         }
       }
+    }
+  }
+
+  // -------------------------------------------------------------------------------- //
+  // NEW CATALOGUE SEEDING
+  // -------------------------------------------------------------------------------- //
+
+  // CORE PRODUCTS
+  const coreProducts = [
+    {
+      name: 'Large Tea Chest Box',
+      role: ProductRole.CORE_PRODUCT,
+      availableForHire: true,
+      availableForBuy: true,
+      hirePrice: 4.35,
+      buyPriceUsed: 4.95,
+      buyPriceNew: 5.95,
+      depositPerUnit: 2.50,
+      dimensions: '430x405x650mm',
+      spec: 'Heavy duty',
+    },
+    {
+      name: 'Medium Book Carton Box',
+      role: ProductRole.CORE_PRODUCT,
+      availableForHire: true,
+      availableForBuy: true,
+      hirePrice: 3.25,
+      buyPriceUsed: 3.95,
+      buyPriceNew: 4.95,
+      depositPerUnit: 1.60,
+      dimensions: '430x315x317mm',
+      spec: 'Heavy duty',
+    },
+    {
+      name: 'Port-a-robe Box',
+      role: ProductRole.CORE_PRODUCT,
+      availableForHire: true,
+      availableForBuy: true,
+      hirePrice: 12.95,
+      buyPriceUsed: 17.95,
+      buyPriceNew: 22.95,
+      depositPerUnit: 9.00,
+      dimensions: '500x600x990mm',
+      spec: 'Heavy duty',
+    },
+    {
+      name: 'Tape Dispenser',
+      role: ProductRole.CORE_PRODUCT,
+      availableForHire: true,
+      availableForBuy: true,
+      hirePrice: 12.00,
+      buyPriceUsed: 15.00,
+      buyPriceNew: 18.00,
+      depositPerUnit: 10.00,
+      spec: 'Does not include tape roll',
+    }
+  ];
+
+  const createdCore: Record<string, any> = {};
+
+  for (const cp of coreProducts) {
+    const existing = await prisma.product.findFirst({ where: { name: cp.name } });
+    if (!existing) {
+      createdCore[cp.name] = await prisma.product.create({ data: cp });
+    } else {
+      createdCore[cp.name] = await prisma.product.update({ where: { id: existing.id }, data: cp });
+    }
+  }
+
+  // ADDONS
+  const addons = [
+    { name: 'Tape roll', price: 4.00, spec: 'Recommend 1 roll per 15 boxes' },
+    { name: 'Wrapping paper 10kg/400 sheets', price: 55.00 },
+    { name: 'Wrapping paper 5kg/200 sheets', price: 35.00 },
+    { name: 'Bubblewrap 15m roll', price: 20.00 },
+    { name: 'Bubblewrap 5m roll', price: 8.00 },
+    { name: 'King mattress protector bag', price: 12.00 },
+    { name: 'Single mattress protector bag', price: 12.00 },
+    { name: '3-seater sofa protector bag', price: 12.00 },
+    { name: 'Single-seat sofa protector bag', price: 12.00 },
+    { name: 'Dining chair protector bags (Pack of 2)', price: 12.00 },
+    { name: 'Picture box', price: 20.00, dimensions: '1040x75x775mm' },
+    { name: 'Fragile stickers (Pack of 20)', price: 3.00 },
+    { name: 'Cable label stickers (Pack of 2)', price: 3.00 },
+    { name: 'Retractable utility knife', price: 5.00 },
+    { name: 'Permanent marker pen', price: 4.00 },
+  ];
+
+  const createdAddons: Record<string, any> = {};
+
+  for (const addon of addons) {
+    const existing = await prisma.product.findFirst({ where: { name: addon.name } });
+    const data = {
+      name: addon.name,
+      role: ProductRole.ADDON,
+      availableForHire: false,
+      availableForBuy: true,
+      buyPriceNew: addon.price,
+      depositPerUnit: 0,
+      spec: addon.spec,
+      dimensions: addon.dimensions
+    };
+    if (!existing) {
+      createdAddons[addon.name] = await prisma.product.create({ data });
+    } else {
+      createdAddons[addon.name] = await prisma.product.update({ where: { id: existing.id }, data });
+    }
+  }
+
+  // PACKAGES
+  const packagesDef = [
+    {
+      name: '1-Bedroom Package',
+      items: [
+        { product: createdCore['Medium Book Carton Box'].id, quantity: 15 },
+        { product: createdCore['Large Tea Chest Box'].id, quantity: 10 },
+        { product: createdAddons['Tape roll'].id, quantity: 1 },
+        { product: createdCore['Tape Dispenser'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 5kg/200 sheets'].id, quantity: 1 },
+        { product: createdAddons['Permanent marker pen'].id, quantity: 1 },
+        { product: createdAddons['Bubblewrap 5m roll'].id, quantity: 1 },
+      ]
+    },
+    {
+      name: '2-Bedroom Package',
+      items: [
+        { product: createdCore['Medium Book Carton Box'].id, quantity: 25 },
+        { product: createdCore['Large Tea Chest Box'].id, quantity: 20 },
+        { product: createdAddons['Tape roll'].id, quantity: 2 },
+        { product: createdCore['Tape Dispenser'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 5kg/200 sheets'].id, quantity: 1 },
+        { product: createdAddons['Permanent marker pen'].id, quantity: 1 },
+        { product: createdAddons['Bubblewrap 5m roll'].id, quantity: 1 },
+      ]
+    },
+    {
+      name: '3-Bedroom Package',
+      items: [
+        { product: createdCore['Medium Book Carton Box'].id, quantity: 35 },
+        { product: createdCore['Large Tea Chest Box'].id, quantity: 25 },
+        { product: createdCore['Port-a-robe Box'].id, quantity: 3 },
+        { product: createdAddons['Tape roll'].id, quantity: 3 },
+        { product: createdCore['Tape Dispenser'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 10kg/400 sheets'].id, quantity: 1 },
+        { product: createdAddons['Permanent marker pen'].id, quantity: 1 },
+        { product: createdAddons['Bubblewrap 15m roll'].id, quantity: 1 },
+      ]
+    },
+    {
+      name: '4-Bedroom Package',
+      items: [
+        { product: createdCore['Medium Book Carton Box'].id, quantity: 50 },
+        { product: createdCore['Large Tea Chest Box'].id, quantity: 35 },
+        { product: createdCore['Port-a-robe Box'].id, quantity: 4 },
+        { product: createdAddons['Tape roll'].id, quantity: 4 },
+        { product: createdCore['Tape Dispenser'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 10kg/400 sheets'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 5kg/200 sheets'].id, quantity: 1 }, // 600 sheets = 400 + 200
+        { product: createdAddons['Permanent marker pen'].id, quantity: 1 },
+        { product: createdAddons['Bubblewrap 15m roll'].id, quantity: 1 },
+      ]
+    },
+    {
+      name: '5-Bedroom Package',
+      items: [
+        { product: createdCore['Medium Book Carton Box'].id, quantity: 60 },
+        { product: createdCore['Large Tea Chest Box'].id, quantity: 45 },
+        { product: createdCore['Port-a-robe Box'].id, quantity: 5 },
+        { product: createdAddons['Tape roll'].id, quantity: 5 },
+        { product: createdCore['Tape Dispenser'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 10kg/400 sheets'].id, quantity: 1 },
+        { product: createdAddons['Wrapping paper 5kg/200 sheets'].id, quantity: 1 }, // 600 sheets = 400 + 200
+        { product: createdAddons['Permanent marker pen'].id, quantity: 1 },
+        { product: createdAddons['Bubblewrap 15m roll'].id, quantity: 1 },
+      ]
+    }
+  ];
+
+  for (const pkg of packagesDef) {
+    const existingPkg = await prisma.product.findFirst({ where: { name: pkg.name } });
+    let pkgRecord;
+    
+    if (!existingPkg) {
+      pkgRecord = await prisma.product.create({
+        data: {
+          name: pkg.name,
+          role: ProductRole.PACKAGE,
+          availableForHire: true,
+          availableForBuy: false, // Packages are typically for hire, but can be adjusted
+          description: 'A pre-configured recipe of boxes and packing supplies.'
+        }
+      });
+    } else {
+      pkgRecord = await prisma.product.update({
+        where: { id: existingPkg.id },
+        data: {
+          role: ProductRole.PACKAGE,
+          availableForHire: true,
+          availableForBuy: false,
+        }
+      });
+    }
+
+    // Upsert package items
+    // First, delete existing items to avoid duplicates on re-seed
+    await prisma.packageItem.deleteMany({
+      where: { packageId: pkgRecord.id }
+    });
+
+    for (const item of pkg.items) {
+      await prisma.packageItem.create({
+        data: {
+          packageId: pkgRecord.id,
+          productId: item.product,
+          quantity: item.quantity
+        }
+      });
     }
   }
 
