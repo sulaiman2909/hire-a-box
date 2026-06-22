@@ -28,11 +28,11 @@ export function calculateOrderTotals(type: OrderType, items: OrderItemInput[]) {
     return {
       saleTotal: 0,
       deliveryFee,
-      hireTotal: subtotal + deliveryFee
+      hireTotal: subtotal
     };
   } else {
     return {
-      saleTotal: subtotal + deliveryFee,
+      saleTotal: subtotal,
       deliveryFee,
       hireTotal: 0
     };

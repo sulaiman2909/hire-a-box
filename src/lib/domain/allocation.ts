@@ -22,7 +22,7 @@ export function allocateDriver(
   targetSlot: string,
   drivers: DriverProfile[],
   mappings: PostcodeMapping[],
-  availabilities: DriverAvailability[]
+  blockouts: DriverAvailability[]
 ): string | 'UNALLOCATED' {
   // 1. Lookup: Match postcode to a driver
   const mapping = mappings.find(m => m.postcode === postcode);
@@ -31,18 +31,21 @@ export function allocateDriver(
   const preferredDriver = drivers.find(d => d.id === mapping.driverId);
   if (!preferredDriver) return 'UNALLOCATED';
 
-  // 2. Primary Check: is preferred driver active and available?
-  if (preferredDriver.isActive) {
-    const isAvailable = availabilities.some(
-      a => a.driverId === preferredDriver.id && 
-           a.date === targetDate && 
-           a.timeSlot === targetSlot && 
-           a.status === 'AVAILABLE'
+  // Helper to check if a driver is blocked
+  const isDriverBlocked = (driverId: string) => {
+    return blockouts.some(
+      b => b.driverId === driverId && 
+           b.date === targetDate && 
+           b.timeSlot === targetSlot
     );
-    if (isAvailable) return preferredDriver.id;
+  };
+
+  // 2. Primary Check: is preferred driver active and NOT blocked?
+  if (preferredDriver.isActive && !isDriverBlocked(preferredDriver.id)) {
+    return preferredDriver.id;
   }
 
-  // 3. Failover Check: Find another active driver in the SAME city who IS available
+  // 3. Failover Check: Find another active driver in the SAME city who is NOT blocked
   const cityDrivers = drivers.filter(d => 
     d.city === preferredDriver.city && 
     d.isActive && 
@@ -50,13 +53,9 @@ export function allocateDriver(
   );
 
   for (const failover of cityDrivers) {
-    const failoverAvailable = availabilities.some(
-      a => a.driverId === failover.id && 
-           a.date === targetDate && 
-           a.timeSlot === targetSlot && 
-           a.status === 'AVAILABLE'
-    );
-    if (failoverAvailable) return failover.id;
+    if (!isDriverBlocked(failover.id)) {
+      return failover.id;
+    }
   }
 
   // 4. Fallback: No driver in city is available
