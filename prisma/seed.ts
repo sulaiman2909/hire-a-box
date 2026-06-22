@@ -22,17 +22,17 @@ async function main() {
 
   // 2. Drivers
   const driverData = [
-    { email: 'driver1@hireabox.com.au', name: 'John Sydney', city: 'Sydney' },
-    { email: 'driver2@hireabox.com.au', name: 'Mark Sydney West', city: 'Sydney' },
-    { email: 'driver3@hireabox.com.au', name: 'Sarah Melbourne', city: 'Melbourne' },
-    { email: 'driver4@hireabox.com.au', name: 'Dave Perth', city: 'Perth' },
-    { email: 'driver5@hireabox.com.au', name: 'Emma Adelaide', city: 'Adelaide' },
+    { email: 'driver1@hireabox.com.au', name: 'Driver 1', city: 'Sydney' },
+    { email: 'driver2@hireabox.com.au', name: 'Driver 2', city: 'Sydney' },
+    { email: 'driver3@hireabox.com.au', name: 'Driver 3', city: 'Melbourne' },
+    { email: 'driver4@hireabox.com.au', name: 'Driver 4', city: 'Perth' },
+    { email: 'driver5@hireabox.com.au', name: 'Driver 5', city: 'Adelaide' },
   ];
 
   for (const d of driverData) {
     await prisma.driver.upsert({
-      where: { id: d.email }, // Just finding by email logic, wait we use findFirst below
-      update: {},
+      where: { email: d.email },
+      update: { name: d.name, city: d.city },
       create: d,
     });
   }
@@ -46,25 +46,30 @@ async function main() {
 
   // 3. Postcode Mappings
   const mapPostcodes = async (driverId: string, postcodes: string[]) => {
-    for (const pc of postcodes) {
-      await prisma.postcodeMapping.upsert({
-        where: { postcode: pc },
-        update: { driverId },
-        create: { postcode: pc, driverId },
-      });
-    }
+    const records = postcodes.map(pc => ({ postcode: pc, driverId }));
+    await prisma.postcodeMapping.createMany({
+      data: records,
+      skipDuplicates: true
+    });
   };
 
-  if (sydneyDriver1) await mapPostcodes(sydneyDriver1.id, ['2000', '2010', '2020', '2030', '2040']);
-  if (sydneyDriver2) await mapPostcodes(sydneyDriver2.id, ['2100', '2150', '2200', '2750']);
-  if (melbDriver) await mapPostcodes(melbDriver.id, ['3000', '3004', '3121', '3141', '3205']);
-  if (perthDriver) await mapPostcodes(perthDriver.id, ['6000', '6004', '6005', '6014', '6100']);
-  if (adelDriver) await mapPostcodes(adelDriver.id, ['5000', '5006', '5014', '5024', '5045']);
+  const generatePostcodes = (start: number, end: number) => {
+    const codes = [];
+    for (let i = start; i <= end; i++) codes.push(i.toString());
+    return codes;
+  };
+
+  if (sydneyDriver1) await mapPostcodes(sydneyDriver1.id, generatePostcodes(2000, 2079));
+  if (sydneyDriver2) await mapPostcodes(sydneyDriver2.id, generatePostcodes(2080, 2234));
+  if (melbDriver) await mapPostcodes(melbDriver.id, generatePostcodes(3000, 3207));
+  if (perthDriver) await mapPostcodes(perthDriver.id, generatePostcodes(6000, 6199));
+  if (adelDriver) await mapPostcodes(adelDriver.id, generatePostcodes(5000, 5199));
 
   // 4. Time Slots
   const timeSlots = ['08:00-10:00', '10:00-12:00', '12:00-14:00', '14:00-16:00'];
   const today = new Date();
   
+  const availRecords = [];
   for (let i = 1; i <= 7; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
@@ -74,23 +79,21 @@ async function main() {
 
     for (const driver of drivers) {
       for (const slot of timeSlots) {
-        const existingSlot = await prisma.driverAvailability.findFirst({
-          where: { driverId: driver.id, date, timeSlot: slot },
+        availRecords.push({
+          driverId: driver.id,
+          date,
+          timeSlot: slot,
+          status: 'AVAILABLE',
         });
-
-        if (!existingSlot) {
-          await prisma.driverAvailability.create({
-            data: {
-              driverId: driver.id,
-              date,
-              timeSlot: slot,
-              status: 'AVAILABLE',
-            },
-          });
-        }
       }
     }
   }
+
+  await prisma.driverAvailability.deleteMany();
+  await prisma.driverAvailability.createMany({
+    data: availRecords,
+    skipDuplicates: true
+  });
 
   // -------------------------------------------------------------------------------- //
   // NEW CATALOGUE SEEDING
