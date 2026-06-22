@@ -1,9 +1,8 @@
 import React from 'react';
-import { PrismaClient, OrderType } from '@prisma/client';
 import { redirect } from 'next/navigation';
+import { OrderType } from '@prisma/client';
 import Link from 'next/link';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 

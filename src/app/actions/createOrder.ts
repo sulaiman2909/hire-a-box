@@ -1,14 +1,14 @@
 'use server';
 
-import { PrismaClient, OrderType, OrderStatus } from '@prisma/client';
+import { OrderType, OrderStatus, OrderSource } from '@prisma/client';
 import { CartState } from '@/app/actions/cart';
 import { calculateOrderTotals } from '@/lib/domain/pricing';
 import { calculateDeposits } from '@/lib/domain/deposits';
 import { calculateDiscount } from '@/lib/domain/promos';
 import { allocateDriver, DriverProfile, PostcodeMapping, DriverAvailability } from '@/lib/domain/allocation';
 import { cookies } from 'next/headers';
-
-const prisma = new PrismaClient();
+import { sendCustomerConfirmationEmail, sendDriverNotificationEmail } from '@/lib/domain/emails';
+import { prisma } from '@/lib/prisma';
 
 interface CreateOrderParams {
   cartState: CartState;
@@ -21,9 +21,12 @@ interface CreateOrderParams {
     address: string;
     suburb: string;
     postcode: string;
+    pickupPostcode?: string;
     date: Date;
     slot: string;
   };
+  source?: OrderSource;
+  isPaid?: boolean;
 }
 
 export async function createOrder(params: CreateOrderParams) {
@@ -38,10 +41,10 @@ export async function createOrder(params: CreateOrderParams) {
   // Recalculate Totals securely
   const totals = calculateOrderTotals(type, items);
   const depositTotal = isHire ? calculateDeposits(items) : 0;
-  const subtotalBeforeDiscount = isHire ? (totals.hireTotal - totals.deliveryFee) : (totals.saleTotal - totals.deliveryFee);
+  const subtotalBeforeDiscount = isHire ? totals.hireTotal : totals.saleTotal;
   const discountAmount = calculateDiscount(subtotalBeforeDiscount, params.cartState.promoCode);
   
-  const grandTotal = (isHire ? totals.hireTotal : totals.saleTotal) - discountAmount + depositTotal;
+  const grandTotal = (isHire ? totals.hireTotal : totals.saleTotal) - discountAmount + depositTotal + totals.deliveryFee;
 
   // Generate unique order number HAB-XXXXXX
   const randomSuffix = Math.floor(100000 + Math.random() * 900000);
@@ -70,11 +73,12 @@ export async function createOrder(params: CreateOrderParams) {
         where: { driverId: { in: allDrivers.map(d => d.id) } }
       });
 
-      const allAvailabilities = await tx.driverAvailability.findMany({
+      const allBlockouts = await tx.driverAvailability.findMany({
         where: {
           driverId: { in: allDrivers.map(d => d.id) },
           date: params.deliveryDetails.date,
-          timeSlot: params.deliveryDetails.slot
+          timeSlot: params.deliveryDetails.slot,
+          status: 'UNAVAILABLE'
         }
       });
 
@@ -90,7 +94,7 @@ export async function createOrder(params: CreateOrderParams) {
         driverId: m.driverId
       }));
 
-      const domainAvailabilities: DriverAvailability[] = allAvailabilities.map(a => ({
+      const domainBlockouts: DriverAvailability[] = allBlockouts.map(a => ({
         driverId: a.driverId,
         date: a.date.toISOString().split('T')[0],
         timeSlot: a.timeSlot,
@@ -103,7 +107,7 @@ export async function createOrder(params: CreateOrderParams) {
         params.deliveryDetails.slot,
         domainDrivers,
         domainMappings,
-        domainAvailabilities
+        domainBlockouts
       );
     }
 
@@ -112,6 +116,7 @@ export async function createOrder(params: CreateOrderParams) {
       data: {
         orderNumber,
         type,
+        source: params.source || OrderSource.WEB,
         status: allocatedDriverId === 'UNALLOCATED' ? OrderStatus.UNALLOCATED : OrderStatus.ALLOCATED,
         customerName: params.customerDetails.name,
         customerEmail: params.customerDetails.email,
@@ -119,12 +124,16 @@ export async function createOrder(params: CreateOrderParams) {
         deliveryAddress: params.deliveryDetails.address,
         deliverySuburb: params.deliveryDetails.suburb,
         deliveryPostcode: params.deliveryDetails.postcode,
+        pickupPostcode: params.deliveryDetails.pickupPostcode,
         deliveryDate: params.deliveryDetails.date,
         deliverySlot: params.deliveryDetails.slot,
         hireTotal: isHire ? totals.hireTotal : 0,
         buyTotal: !isHire ? totals.saleTotal : 0,
         depositTotal,
+        deliveryFee: totals.deliveryFee,
+        discountAmount,
         grandTotal,
+        amountPaid: params.isPaid === false ? 0 : grandTotal,
         driverId: allocatedDriverId !== 'UNALLOCATED' ? allocatedDriverId : null,
         items: {
           create: items.map(item => ({
@@ -140,21 +149,14 @@ export async function createOrder(params: CreateOrderParams) {
 
     // 3. Book Slot
     if (allocatedDriverId !== 'UNALLOCATED') {
-      const avail = await tx.driverAvailability.findFirst({
-        where: {
+      await tx.driverAvailability.create({
+        data: {
           driverId: allocatedDriverId,
           date: params.deliveryDetails.date,
           timeSlot: params.deliveryDetails.slot,
-          status: 'AVAILABLE'
+          status: 'UNAVAILABLE'
         }
       });
-
-      if (avail) {
-        await tx.driverAvailability.update({
-          where: { id: avail.id },
-          data: { status: 'UNAVAILABLE' }
-        });
-      }
     }
 
     // 4. Create Email Logs
@@ -167,9 +169,12 @@ export async function createOrder(params: CreateOrderParams) {
       }
     });
 
+    let allocatedDriverEmail: string | undefined;
+
     if (allocatedDriverId !== 'UNALLOCATED') {
       const driver = await tx.driver.findUnique({ where: { id: allocatedDriverId } });
       if (driver) {
+        allocatedDriverEmail = driver.email;
         await tx.emailLog.create({
           data: {
             orderId: order.id,
@@ -181,7 +186,7 @@ export async function createOrder(params: CreateOrderParams) {
       }
     }
 
-    return order.id;
+    return { order, allocatedDriverEmail };
   }, {
     maxWait: 5000, // default is 2000
     timeout: 15000, // default is 5000
@@ -191,5 +196,11 @@ export async function createOrder(params: CreateOrderParams) {
   const cookieStore = await cookies();
   cookieStore.delete('hab_cart_state');
 
-  return orderId;
+  // Fire off real emails asynchronously
+  sendCustomerConfirmationEmail(orderId.order, params.customerDetails.email).catch(console.error);
+  if (orderId.allocatedDriverEmail) {
+    sendDriverNotificationEmail(orderId.order, orderId.allocatedDriverEmail).catch(console.error);
+  }
+
+  return orderId.order.id;
 }

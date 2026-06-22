@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CartState } from '@/app/actions/cart';
 import { calculateOrderTotals, FREE_DELIVERY_THRESHOLD_HIRE, FREE_DELIVERY_THRESHOLD_BUY } from '@/lib/domain/pricing';
 import { calculateDeposits } from '@/lib/domain/deposits';
 import { calculateDiscount } from '@/lib/domain/promos';
 import { OrderType } from '@prisma/client';
-import { getAvailableSlots } from '@/app/actions/checkout';
+import { getAvailableSlots, getDisabledDates } from '@/app/actions/checkout';
 import { createOrder } from '@/app/actions/createOrder';
 import { useRouter } from 'next/navigation';
+import { useCart } from '@/components/customer/CartProvider';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { Check } from 'lucide-react';
 
 interface CheckoutClientProps {
   initialCartState: CartState;
@@ -16,6 +20,7 @@ interface CheckoutClientProps {
 
 export default function CheckoutClient({ initialCartState }: CheckoutClientProps) {
   const router = useRouter();
+  const { resetCart } = useCart();
   
   // Decide if we are checking out Hire or Buy based on which has items.
   // Priority to Hire if both exist, but generally they shouldn't checkout both at once without separating.
@@ -27,11 +32,19 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
   // Calculations
   const totals = calculateOrderTotals(orderType, items);
   const depositTotal = isHire ? calculateDeposits(items) : 0;
-  const subtotalBeforeDiscount = isHire ? (totals.hireTotal - totals.deliveryFee) : totals.saleTotal - totals.deliveryFee;
+  const subtotalBeforeDiscount = isHire ? totals.hireTotal : totals.saleTotal;
   const discountAmount = calculateDiscount(subtotalBeforeDiscount, initialCartState.promoCode);
-  const totalAmount = (isHire ? totals.hireTotal : totals.saleTotal) - discountAmount + depositTotal;
+  const totalAmount = (isHire ? totals.hireTotal : totals.saleTotal) - discountAmount + depositTotal + totals.deliveryFee;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const y = containerRef.current.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: y > 0 ? y : 0, behavior: 'smooth' });
+    }
+  }, [step]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -64,6 +77,25 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
   const [paymentError, setPaymentError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [disabledDates, setDisabledDates] = useState<Date[]>([]);
+  const [loadingDates, setLoadingDates] = useState(false);
+  const [selectedDateObj, setSelectedDateObj] = useState<Date | null>(null);
+
+  // Fetch disabled dates when postcode (suburb) is set
+  useEffect(() => {
+    if (formData.suburb) {
+      setLoadingDates(true);
+      getDisabledDates(formData.suburb).then(datesStr => {
+        const dates = datesStr.map(dStr => {
+           const [y, m, d] = dStr.split('-');
+           return new Date(Number(y), Number(m) - 1, Number(d));
+        });
+        setDisabledDates(dates);
+        setLoadingDates(false);
+      });
+    }
+  }, [formData.suburb]);
+
   // Fetch slots when date changes
   useEffect(() => {
     if (formData.deliveryDate && formData.suburb) {
@@ -86,6 +118,16 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleDateChange = (date: Date | null) => {
+    setSelectedDateObj(date);
+    if (date) {
+      const dStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      setFormData(prev => ({ ...prev, deliveryDate: dStr }));
+    } else {
+      setFormData(prev => ({ ...prev, deliveryDate: '' }));
+    }
   };
 
   const validateStep1 = () => {
@@ -166,12 +208,15 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
           address: `${formData.street}, ${formData.addressLine2}`,
           suburb: formData.suburb,
           postcode: formData.suburb, // In a real app, parse this properly. Here suburb holds postcode for serviceability
+          pickupPostcode: initialCartState.pickupPostcode || undefined,
           date: new Date(formData.deliveryDate),
           slot: formData.deliverySlot
         }
       });
       
-      router.push(`/checkout/success?orderId=${orderId}`);
+      // Use hard redirect to avoid Next.js transition cancellation conflicts
+      // with the CartProvider's useEffect server action, and to ensure clean state
+      window.location.href = `/checkout/success?orderId=${orderId}`;
     } catch (err: any) {
       setPaymentError(err.message || 'Error processing order.');
       setIsProcessing(false);
@@ -179,58 +224,93 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#E6E0D4] overflow-hidden">
-      {/* Progress Bar */}
-      <div className="flex border-b border-[#E6E0D4] bg-[#FDFCFB]">
-        {['Contact & Delivery', 'Review Order', 'Payment'].map((label, idx) => {
-          const s = idx + 1;
-          const isActive = step === s;
-          const isDone = step > s;
-          return (
-            <div key={s} className={`flex-1 py-4 px-6 text-center text-sm font-semibold border-r border-[#E6E0D4] last:border-0 ${isActive ? 'bg-[var(--color-brand-charcoal)] text-white' : isDone ? 'text-[var(--color-brand-orange)]' : 'text-[#9A9791]'}`}>
-              {s}. {label}
-            </div>
-          );
-        })}
+    <div ref={containerRef} className="bg-white rounded-[12px] shadow-sm border border-[#E6E0D4] overflow-hidden mb-16">
+      {/* Progress Bar (Stepper) */}
+      <div className="px-6 py-8 border-b border-[#E6E0D4] bg-[#FDFCFB]">
+        <div className="flex items-center justify-between max-w-2xl mx-auto relative">
+          {/* Background line */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-[#E6E0D4] z-0"></div>
+          
+          {['Details', 'Review', 'Payment'].map((label, idx) => {
+            const s = idx + 1;
+            const isActive = step === s;
+            const isDone = step > s;
+            
+            return (
+              <div key={s} className="relative z-10 flex flex-col items-center gap-2 bg-[#FDFCFB] px-2 sm:px-4">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-heading text-sm sm:text-[15px] font-bold transition-colors ${
+                  isDone 
+                    ? 'bg-[var(--color-brand-orange)] text-white' 
+                    : isActive 
+                      ? 'bg-[var(--color-brand-charcoal)] text-white ring-4 ring-[var(--color-brand-charcoal)]/10' 
+                      : 'bg-white border-2 border-[#E6E0D4] text-[#9A9791]'
+                }`}>
+                  {isDone ? <Check className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} /> : s}
+                </div>
+                <span className={`text-[11px] sm:text-[13px] font-semibold tracking-wide uppercase transition-colors ${
+                  isActive || isDone ? 'text-[var(--color-brand-charcoal)]' : 'text-[#9A9791]'
+                }`}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="p-8">
+      <div className="p-6 md:p-10">
         {step === 1 && (
-          <div className="space-y-6 max-w-2xl mx-auto">
-            <h2 className="text-xl font-bold text-[var(--color-brand-charcoal)]">Contact Details</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="text" name="firstName" placeholder="First Name *" value={formData.firstName} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
-              <input type="text" name="lastName" placeholder="Last Name *" value={formData.lastName} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
-              <input type="email" name="email" placeholder="Email Address *" value={formData.email} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none col-span-2" />
-              <input type="tel" name="mobile" placeholder="Mobile Number *" value={formData.mobile} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
-              <input type="tel" name="phone" placeholder="Phone Number (Optional)" value={formData.phone} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
-              <input type="text" name="company" placeholder="Company Name (Optional)" value={formData.company} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none col-span-2" />
+          <div className="space-y-10 max-w-2xl mx-auto">
+            <div>
+              <h2 className="text-2xl font-bold font-heading text-[var(--color-brand-charcoal)] mb-6">Contact Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <input type="text" name="firstName" placeholder="First Name *" value={formData.firstName} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
+                <input type="text" name="lastName" placeholder="Last Name *" value={formData.lastName} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
+                <input type="email" name="email" placeholder="Email Address *" value={formData.email} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none sm:col-span-2" />
+                <input type="tel" name="mobile" placeholder="Mobile Number *" value={formData.mobile} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
+                <input type="tel" name="phone" placeholder="Phone Number (Optional)" value={formData.phone} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
+                <input type="text" name="company" placeholder="Company Name (Optional)" value={formData.company} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none sm:col-span-2" />
+              </div>
             </div>
 
-            <h2 className="text-xl font-bold text-[var(--color-brand-charcoal)] mt-8">Delivery Details</h2>
-            <p className="text-xs text-[#9A9791] mb-4">P.O. Boxes not accepted</p>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="text" name="street" placeholder="Street Address *" value={formData.street} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none col-span-2" />
-              <input type="text" name="addressLine2" placeholder="Apartment, suite, etc. (Optional)" value={formData.addressLine2} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none col-span-2" />
-              <input type="text" name="suburb" value={formData.suburb} readOnly className="p-3 text-sm border border-[#E6E0D4] rounded-md bg-stone-100 text-[#6B6862] cursor-not-allowed col-span-2" placeholder="Postcode" title="Postcode locked from cart serviceability" />
-              
-              <div className="col-span-2 sm:col-span-1">
-                <input type="date" name="deliveryDate" value={formData.deliveryDate} onChange={handleFormChange} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none" />
+            <hr className="border-[#E6E0D4]" />
+
+            <div>
+              <h2 className="text-2xl font-bold font-heading text-[var(--color-brand-charcoal)] mb-2">Delivery Details</h2>
+              <p className="text-[14px] text-[#6B6862] mb-6">P.O. Boxes are not accepted for delivery.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <input type="text" name="street" placeholder="Street Address *" value={formData.street} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none sm:col-span-2" />
+                <input type="text" name="addressLine2" placeholder="Apartment, suite, etc. (Optional)" value={formData.addressLine2} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none sm:col-span-2" />
+                <input type="text" name="suburb" value={formData.suburb} readOnly className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md bg-stone-100 text-[#6B6862] cursor-not-allowed sm:col-span-2" placeholder="Postcode" title="Postcode locked from cart serviceability" />
+                
+                <div className="w-full">
+                  <DatePicker 
+                    selected={selectedDateObj}
+                    onChange={handleDateChange}
+                    minDate={new Date()}
+                    excludeDates={disabledDates}
+                    placeholderText={loadingDates ? "Checking availability..." : "Select delivery date *"}
+                    dateFormat="dd/MM/yyyy"
+                    disabled={loadingDates}
+                    className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none disabled:bg-stone-100"
+                    wrapperClassName="w-full block"
+                  />
+                </div>
+                <div className="w-full">
+                  <select name="deliverySlot" value={formData.deliverySlot} onChange={handleFormChange} disabled={!formData.deliveryDate || loadingSlots} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none disabled:bg-stone-100 disabled:text-[#9A9791]">
+                    <option value="">{loadingSlots ? 'Loading slots...' : 'Select time slot *'}</option>
+                    {availableSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                  </select>
+                  {formData.deliveryDate && !loadingSlots && availableSlots.length === 0 && (
+                    <p className="text-sm text-red-500 mt-2 font-medium">No slots available for this date.</p>
+                  )}
+                </div>
+                <textarea name="specialInstructions" placeholder="Special Delivery Instructions" value={formData.specialInstructions} onChange={handleFormChange} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none sm:col-span-2 h-28 resize-none" />
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <select name="deliverySlot" value={formData.deliverySlot} onChange={handleFormChange} disabled={!formData.deliveryDate || loadingSlots} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none disabled:bg-stone-100 disabled:text-[#9A9791]">
-                  <option value="">{loadingSlots ? 'Loading slots...' : 'Select time slot *'}</option>
-                  {availableSlots.map(slot => <option key={slot} value={slot}>{slot}</option>)}
-                </select>
-                {formData.deliveryDate && !loadingSlots && availableSlots.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">No slots available for this date.</p>
-                )}
-              </div>
-              <textarea name="specialInstructions" placeholder="Special Delivery Instructions" value={formData.specialInstructions} onChange={handleFormChange} className="p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none col-span-2 h-24 resize-none" />
             </div>
 
-            <div className="flex justify-end mt-8">
-              <button onClick={handleNext} disabled={!validateStep1()} className="px-8 py-3 bg-[var(--color-brand-orange)] text-white text-sm font-semibold rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors">
+            <div className="flex justify-end pt-6">
+              <button onClick={handleNext} disabled={!validateStep1()} className="w-full sm:w-auto px-10 py-4 bg-[var(--color-brand-orange)] text-white text-[15px] font-semibold rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-sm">
                 Continue to Review
               </button>
             </div>
@@ -291,11 +371,11 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
               </div>
             </div>
 
-            <div className="flex justify-between mt-8">
-              <button onClick={handleBack} className="px-6 py-3 text-sm font-semibold text-[#6B6862] hover:text-[var(--color-brand-charcoal)]">
+            <div className="flex flex-col-reverse sm:flex-row justify-between pt-8 gap-4 items-center border-t border-[#E6E0D4] mt-8">
+              <button onClick={handleBack} className="px-6 py-3.5 text-[15px] font-semibold text-[#6B6862] hover:text-[var(--color-brand-charcoal)] transition-colors">
                 Back to Details
               </button>
-              <button onClick={handleNext} className="px-8 py-3 bg-[var(--color-brand-orange)] text-white text-sm font-semibold rounded-md hover:bg-orange-700 transition-colors">
+              <button onClick={handleNext} className="w-full sm:w-auto px-10 py-3.5 bg-[var(--color-brand-orange)] text-white text-[15px] font-semibold rounded-md hover:bg-orange-700 transition-colors shadow-sm">
                 Continue to Payment
               </button>
             </div>
@@ -309,41 +389,41 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
               <strong>TEST PAYMENT MODE:</strong> Use card <span className="font-mono bg-yellow-200 px-1 rounded">4111 1111 1111 1111</span> to succeed. Any other valid Luhn will decline. Never enter real card details.
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-[#6B6862] mb-1">Name on Card</label>
-                <input type="text" name="cardName" value={paymentData.cardName} onChange={(e) => setPaymentData({...paymentData, cardName: e.target.value})} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none uppercase" />
+                <label className="block text-[13px] font-semibold text-[#6B6862] mb-1.5 uppercase tracking-wide">Name on Card</label>
+                <input type="text" name="cardName" value={paymentData.cardName} onChange={(e) => setPaymentData({...paymentData, cardName: e.target.value})} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none uppercase" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#6B6862] mb-1">Card Number</label>
-                <input type="text" name="cardNumber" maxLength={19} placeholder="XXXX XXXX XXXX XXXX" value={paymentData.cardNumber} onChange={(e) => setPaymentData({...paymentData, cardNumber: e.target.value})} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none font-mono" />
+                <label className="block text-[13px] font-semibold text-[#6B6862] mb-1.5 uppercase tracking-wide">Card Number</label>
+                <input type="text" name="cardNumber" maxLength={19} placeholder="XXXX XXXX XXXX XXXX" value={paymentData.cardNumber} onChange={(e) => setPaymentData({...paymentData, cardNumber: e.target.value})} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none font-mono" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-semibold text-[#6B6862] mb-1">Expiry Date</label>
+                  <label className="block text-[13px] font-semibold text-[#6B6862] mb-1.5 uppercase tracking-wide">Expiry Date</label>
                   <div className="flex gap-2">
-                    <input type="text" placeholder="MM" maxLength={2} value={paymentData.expiryMonth} onChange={(e) => setPaymentData({...paymentData, expiryMonth: e.target.value})} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
-                    <input type="text" placeholder="YY" maxLength={2} value={paymentData.expiryYear} onChange={(e) => setPaymentData({...paymentData, expiryYear: e.target.value})} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
+                    <input type="text" placeholder="MM" maxLength={2} value={paymentData.expiryMonth} onChange={(e) => setPaymentData({...paymentData, expiryMonth: e.target.value})} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
+                    <input type="text" placeholder="YY" maxLength={2} value={paymentData.expiryYear} onChange={(e) => setPaymentData({...paymentData, expiryYear: e.target.value})} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#6B6862] mb-1">CVV</label>
-                  <input type="password" maxLength={3} placeholder="XXX" value={paymentData.cvv} onChange={(e) => setPaymentData({...paymentData, cvv: e.target.value})} className="w-full p-3 text-sm border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
+                  <label className="block text-[13px] font-semibold text-[#6B6862] mb-1.5 uppercase tracking-wide">CVV</label>
+                  <input type="password" maxLength={3} placeholder="XXX" value={paymentData.cvv} onChange={(e) => setPaymentData({...paymentData, cvv: e.target.value})} className="w-full p-3.5 text-[15px] border border-[#E6E0D4] rounded-md focus:ring-2 focus:ring-[var(--color-brand-orange)] outline-none text-center" />
                 </div>
               </div>
             </div>
 
             {paymentError && (
-              <div className="bg-red-50 text-red-600 text-sm p-3 rounded border border-red-200 mt-4 text-center font-medium">
+              <div className="bg-red-50 text-red-600 text-sm p-3.5 rounded border border-red-200 mt-6 text-center font-medium">
                 {paymentError}
               </div>
             )}
 
-            <div className="flex justify-between mt-8 items-center">
-              <button onClick={handleBack} disabled={isProcessing} className="px-6 py-3 text-sm font-semibold text-[#6B6862] hover:text-[var(--color-brand-charcoal)] disabled:opacity-50">
+            <div className="flex flex-col-reverse sm:flex-row justify-between pt-8 gap-4 items-center border-t border-[#E6E0D4] mt-8">
+              <button onClick={handleBack} disabled={isProcessing} className="px-6 py-3.5 text-[15px] font-semibold text-[#6B6862] hover:text-[var(--color-brand-charcoal)] disabled:opacity-50 transition-colors">
                 Back to Review
               </button>
-              <button onClick={handlePayment} disabled={isProcessing} className="px-8 py-3 bg-[var(--color-brand-charcoal)] text-white text-sm font-bold rounded-md hover:bg-black transition-colors shadow-md disabled:opacity-50 flex items-center gap-2">
+              <button onClick={handlePayment} disabled={isProcessing} className="w-full sm:w-auto px-10 py-3.5 bg-[var(--color-brand-charcoal)] text-white text-[15px] font-bold rounded-md hover:bg-black transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
                 {isProcessing ? 'Processing...' : `Pay $${totalAmount.toFixed(2)}`}
               </button>
             </div>

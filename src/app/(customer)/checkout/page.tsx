@@ -1,9 +1,7 @@
 import React from 'react';
 import CheckoutClient from '@/components/customer/CheckoutClient';
 import { getCartState } from '@/app/actions/cart';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
