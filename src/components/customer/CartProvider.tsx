@@ -7,13 +7,15 @@ interface CartContextType {
   state: CartState;
   isDrawerOpen: boolean;
   activeMode: 'hire' | 'buy';
-  openCart: (mode: 'hire' | 'buy') => void;
+  setActiveMode: (mode: 'hire' | 'buy') => void;
+  openCart: (mode?: 'hire' | 'buy') => void;
   closeCart: () => void;
   updateQuantity: (mode: 'hire' | 'buy', item: Omit<CartLineItem, 'quantity'>, quantity: number) => void;
   clearCart: (mode: 'hire' | 'buy') => void;
   setDeliveryPostcode: (postcode: string) => void;
   setPickupPostcode: (postcode: string) => void;
   setPromoCode: (code: string) => void;
+  resetCart: () => void;
   isPending: boolean;
 }
 
@@ -67,6 +69,16 @@ export function CartProvider({
     );
   };
 
+  const resetCart = () => {
+    setState({
+      hireItems: [],
+      buyItems: [],
+      deliveryPostcode: '',
+      pickupPostcode: '',
+      promoCode: ''
+    });
+  };
+
   const setDeliveryPostcode = (postcode: string) => {
     setState(prev => ({ ...prev, deliveryPostcode: postcode }));
   };
@@ -79,8 +91,10 @@ export function CartProvider({
     setState(prev => ({ ...prev, promoCode: code }));
   };
 
-  const openCart = (mode: 'hire' | 'buy') => {
-    setActiveMode(mode);
+  const openCart = (mode?: 'hire' | 'buy') => {
+    if (mode) {
+      setActiveMode(mode);
+    }
     setIsDrawerOpen(true);
   };
 
@@ -90,8 +104,8 @@ export function CartProvider({
 
   return (
     <CartContext.Provider value={{ 
-      state, isDrawerOpen, activeMode, openCart, closeCart, 
-      updateQuantity, clearCart, 
+      state, isDrawerOpen, activeMode, setActiveMode, openCart, closeCart, 
+      updateQuantity, clearCart, resetCart,
       setDeliveryPostcode, setPickupPostcode, setPromoCode,
       isPending 
     }}>

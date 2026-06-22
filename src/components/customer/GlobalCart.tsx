@@ -14,7 +14,7 @@ export default function GlobalCart() {
   const router = useRouter();
   const { 
     state, isDrawerOpen, closeCart, activeMode, updateQuantity, clearCart,
-    setDeliveryPostcode, setPickupPostcode, setPromoCode
+    setDeliveryPostcode, setPickupPostcode, setPromoCode, setActiveMode
   } = useCart();
 
   const items = activeMode === 'hire' ? state.hireItems : state.buyItems;
@@ -53,6 +53,7 @@ export default function GlobalCart() {
       setDeliveryPostcode={setDeliveryPostcode}
       setPickupPostcode={setPickupPostcode}
       setPromoCode={setPromoCode}
+      setActiveMode={setActiveMode}
     >
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center h-full">

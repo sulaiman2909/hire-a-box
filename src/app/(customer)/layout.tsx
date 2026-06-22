@@ -3,7 +3,6 @@ import CustomerHeader from '@/components/customer/CustomerHeader';
 import CustomerFooter from '@/components/customer/CustomerFooter';
 import { CartProvider } from '@/components/customer/CartProvider';
 import GlobalCart from '@/components/customer/GlobalCart';
-import FloatingCartButton from '@/components/customer/FloatingCartButton';
 import { getCartState } from '@/app/actions/cart';
 
 export default async function CustomerLayout({
@@ -18,10 +17,9 @@ export default async function CustomerLayout({
       <CartProvider initialState={initialCartState}>
         <CustomerHeader />
         <GlobalCart />
-        <main className="flex-grow pb-24">
+        <main className="flex-grow">
           {children}
         </main>
-        <FloatingCartButton />
         <CustomerFooter />
       </CartProvider>
     </div>

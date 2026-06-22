@@ -2,10 +2,24 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Package, Truck, PackagePlus, Warehouse, Menu, X, Phone, Mail } from 'lucide-react';
+import { Package, Truck, PackagePlus, Warehouse, Menu, X, Phone, Mail, ShoppingCart } from 'lucide-react';
+import { useCart } from '@/components/customer/CartProvider';
 
 export default function CustomerHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { state, openCart } = useCart();
+  
+  const hireCount = state.hireItems.reduce((acc, item) => acc + item.quantity, 0);
+  const buyCount = state.buyItems.reduce((acc, item) => acc + item.quantity, 0);
+  const totalItems = hireCount + buyCount;
+
+  const handleOpenCart = () => {
+    if (buyCount > 0 && hireCount === 0) {
+      openCart('buy');
+    } else {
+      openCart('hire');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 flex flex-col shadow-md">
@@ -49,6 +63,18 @@ export default function CustomerHeader() {
                 Buy Now
               </Link>
             </div>
+            <button 
+              onClick={handleOpenCart}
+              className="relative p-2 text-[var(--color-brand-charcoal)] hover:text-[var(--color-brand-orange)] transition-colors ml-2 mr-1 sm:mr-2"
+              aria-label="Open cart"
+            >
+              <ShoppingCart className="w-6 h-6 sm:w-7 sm:h-7" />
+              {totalItems > 0 && (
+                <span className="absolute top-0 right-0 translate-x-1 -translate-y-1 bg-[var(--color-brand-orange)] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {totalItems > 99 ? '99+' : totalItems}
+                </span>
+              )}
+            </button>
             <button
               className="xl:hidden p-1.5 sm:p-2 text-[var(--color-brand-charcoal)] hover:text-[var(--color-brand-orange)] transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { checkServiceability, applyPromoCode } from '@/app/actions/checkout';
+import { checkServiceability, checkFullServiceability, applyPromoCode } from '@/app/actions/checkout';
 import { CartState } from '@/app/actions/cart';
 
 interface CartSummaryProps {
@@ -22,6 +22,7 @@ interface CartSummaryProps {
   setDeliveryPostcode?: (pc: string) => void;
   setPickupPostcode?: (pc: string) => void;
   setPromoCode?: (code: string) => void;
+  setActiveMode?: (mode: 'hire' | 'buy') => void;
 }
 
 export default function CartSummary({
@@ -41,7 +42,8 @@ export default function CartSummary({
   cartState,
   setDeliveryPostcode,
   setPickupPostcode,
-  setPromoCode
+  setPromoCode,
+  setActiveMode
 }: CartSummaryProps) {
   const amountAway = Math.max(0, threshold - subtotal);
   const progressPercent = Math.min(100, (subtotal / threshold) * 100);
@@ -80,36 +82,16 @@ export default function CartSummary({
     setCheckingServiceability(true);
     setServiceMsg('');
     try {
-      const isDeliveryValid = await checkServiceability(localDelivery);
+      const isHire = activeMode === 'hire';
+      const result = await checkFullServiceability(localDelivery, localPickup, isHire);
       
-      if (!isDeliveryValid) {
-        setServiceable(false);
-        setServiceMsg('Delivery postcode is not serviceable. Please switch to Buy mode or change postcode.');
-        setCheckingServiceability(false);
-        return;
-      }
+      setServiceable(result.isValid);
+      setServiceMsg(result.message);
 
-      if (activeMode === 'hire') {
-        if (!localPickup) {
-           setServiceable(false);
-           setServiceMsg('Please enter a pickup postcode for hire orders.');
-           setCheckingServiceability(false);
-           return;
-        }
-        const isPickupValid = await checkServiceability(localPickup);
-        if (!isPickupValid) {
-          setServiceable(false);
-          setServiceMsg('Pickup postcode is not serviceable. Please switch to Buy mode or change postcode.');
-          setCheckingServiceability(false);
-          return;
-        }
+      if (result.isValid) {
+        if (setDeliveryPostcode) setDeliveryPostcode(localDelivery);
+        if (setPickupPostcode && localPickup) setPickupPostcode(localPickup);
       }
-
-      setServiceable(true);
-      setServiceMsg('Great! We service your area.');
-      if (setDeliveryPostcode) setDeliveryPostcode(localDelivery);
-      if (setPickupPostcode && localPickup) setPickupPostcode(localPickup);
-      
     } catch (err) {
       setServiceable(false);
       setServiceMsg('Error checking serviceability.');
@@ -151,33 +133,51 @@ export default function CartSummary({
         style={{ transform: isOpen ? 'translateX(0)' : 'translateX(100%)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border-color)] bg-white">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-heading font-bold text-[var(--text-primary)] m-0">Your Order</h2>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] bg-white">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-heading font-bold text-[var(--text-primary)] m-0">Your Order</h2>
             {isValid && onClearCart && (
-              <button onClick={onClearCart} className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline transition-colors mt-1">
+              <button onClick={onClearCart} className="text-[11px] font-medium text-red-500 hover:text-red-700 hover:underline transition-colors mt-0.5">
                 Clear Cart
               </button>
             )}
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 transition-colors text-[var(--text-secondary)]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 transition-colors text-[var(--text-secondary)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
 
+        {/* Tabs */}
+        {setActiveMode && (
+          <div className="flex bg-stone-100 p-1 mx-3 mt-3 rounded-md">
+            <button 
+              className={`flex-1 py-1.5 text-sm font-semibold rounded transition-colors ${activeMode === 'hire' ? 'bg-white shadow-sm text-[var(--color-brand-orange)]' : 'text-stone-500 hover:text-stone-700'}`}
+              onClick={() => setActiveMode('hire')}
+            >
+              Hire Cart
+            </button>
+            <button 
+              className={`flex-1 py-1.5 text-sm font-semibold rounded transition-colors ${activeMode === 'buy' ? 'bg-white shadow-sm text-[var(--color-brand-charcoal)]' : 'text-stone-500 hover:text-stone-700'}`}
+              onClick={() => setActiveMode('buy')}
+            >
+              Buy Cart
+            </button>
+          </div>
+        )}
+
         {/* Free Delivery Progress */}
         {isValid && (
-          <div className="px-6 py-4 bg-[var(--primary-50)] border-b border-[var(--border-color)]">
-            <div className="flex justify-between mb-2 text-[13px] font-semibold text-[var(--text-primary)]">
+          <div className="px-3 py-2 bg-[var(--primary-50)] border-b border-[var(--border-color)]">
+            <div className="flex justify-between mb-1.5 text-[12px] font-semibold text-[var(--text-primary)]">
               <span>Free Delivery</span>
               <span className={amountAway === 0 ? 'text-[var(--primary-600)]' : 'text-[var(--text-secondary)]'}>
                 {amountAway === 0 ? 'Unlocked!' : `$${amountAway.toFixed(2)} away`}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-white/60 rounded-full overflow-hidden shadow-inner">
+            <div className="w-full h-1 bg-white/60 rounded-full overflow-hidden shadow-inner">
               <div 
                 className={`h-full transition-all duration-500 ease-out ${amountAway === 0 ? 'bg-[var(--primary-500)]' : 'bg-[var(--color-brand-kraft)]'}`}
                 style={{ width: `${progressPercent}%` }}
@@ -186,13 +186,13 @@ export default function CartSummary({
           </div>
         )}
 
-        <div className="flex-grow overflow-y-auto px-6 flex flex-col bg-white">
+        <div className="flex-grow overflow-y-auto px-3 py-1 flex flex-col bg-white">
           {children}
         </div>
 
         {/* Fixed Tools & Totals Section */}
         {isValid && (
-          <div className="mt-auto bg-[#FDFCFB] border-t border-[var(--border-color)] p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex flex-col gap-2">
+          <div className="mt-auto bg-[#FDFCFB] border-t border-[var(--border-color)] p-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex flex-col gap-2">
             
             {/* Serviceability & Promo Tools (Compact) */}
             <div className="flex flex-col gap-1.5">
