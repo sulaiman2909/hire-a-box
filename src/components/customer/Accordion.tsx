@@ -1,36 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 
 interface AccordionItemProps {
   title: string;
   children: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-export function AccordionItem({ title, children }: AccordionItemProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
+export function AccordionItem({ title, children, isOpen, onToggle }: AccordionItemProps) {
   return (
-    <div className="border-b border-[var(--color-brand-charcoal)]/10 py-4">
+    <div className={`bg-white rounded-[8px] border transition-colors duration-300 ${isOpen ? 'border-[var(--color-brand-orange)] shadow-sm' : 'border-[var(--color-brand-charcoal)]/10 hover:border-[var(--color-brand-orange)]/50'}`}>
       <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center bg-transparent border-none font-heading font-semibold text-[20px] md:text-[22px] text-[var(--color-brand-charcoal)] cursor-pointer py-2 text-left hover:text-[var(--color-brand-orange)] transition-colors"
+        onClick={onToggle}
+        className="w-full flex justify-between items-center bg-transparent border-none font-sans font-semibold text-[15px] md:text-[16px] text-[var(--color-brand-charcoal)] cursor-pointer p-5 text-left transition-colors"
       >
-        {title}
-        <ChevronDown 
-          className={`transform transition-transform duration-300 text-[var(--color-brand-orange)] w-6 h-6 ml-4 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
-          aria-hidden="true"
-        />
+        <span className="pr-4 leading-snug">{title}</span>
+        <div className="shrink-0 w-6 h-6 flex items-center justify-center text-[var(--color-brand-orange)]">
+          {isOpen ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        </div>
       </button>
       
-      {/* DOM Rendered for SEO, visual toggle via CSS */}
       <div 
-        className={`overflow-hidden transition-all duration-300 font-sans font-normal text-[16px] leading-[1.6] text-[#5A5A52] prose-width ${
-          isOpen ? 'max-h-[1000px] opacity-100 mt-4' : 'max-h-0 opacity-0 mt-0'
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         }`}
       >
-        {children}
+        <div className="overflow-hidden">
+          <div className="px-5 pb-5 pt-1 font-sans font-normal text-[14px] md:text-[15px] leading-[1.6] text-[#5A5A52]">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -41,13 +43,48 @@ interface AccordionProps {
 }
 
 export function Accordion({ items }: AccordionProps) {
+  const [openId, setOpenId] = useState<number | null>(null);
+
+  const toggle = (idx: number) => {
+    setOpenId(openId === idx ? null : idx);
+  };
+
   return (
-    <div className="w-full max-w-3xl mx-auto bg-white p-8 rounded-[12px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[var(--color-brand-charcoal)]/5">
-      {items.map((item, idx) => (
-        <AccordionItem key={idx} title={item.title}>
-          {item.content}
-        </AccordionItem>
-      ))}
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        {/* Left Column */}
+        <div className="flex flex-col gap-4">
+          {items.filter((_, idx) => idx % 2 === 0).map((item, idx) => {
+            const originalIndex = idx * 2;
+            return (
+              <AccordionItem 
+                key={originalIndex} 
+                title={item.title} 
+                isOpen={openId === originalIndex} 
+                onToggle={() => toggle(originalIndex)}
+              >
+                {item.content}
+              </AccordionItem>
+            );
+          })}
+        </div>
+        {/* Right Column */}
+        <div className="flex flex-col gap-4">
+          {items.filter((_, idx) => idx % 2 !== 0).map((item, idx) => {
+            const originalIndex = idx * 2 + 1;
+            return (
+              <AccordionItem 
+                key={originalIndex} 
+                title={item.title} 
+                isOpen={openId === originalIndex} 
+                onToggle={() => toggle(originalIndex)}
+              >
+                {item.content}
+              </AccordionItem>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

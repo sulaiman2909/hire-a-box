@@ -113,3 +113,19 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* React DatePicker Customizations */
+.react-datepicker__day--selected, 
+.react-datepicker__day--keyboard-selected, 
+.react-datepicker__month-text--keyboard-selected, 
+.react-datepicker__quarter-text--keyboard-selected, 
+.react-datepicker__year-text--keyboard-selected {
+  background-color: var(--color-brand-orange) !important;
+  color: white !important;
+}
+
+.react-datepicker__day--selected:hover, 
+.react-datepicker__day--keyboard-selected:hover {
+  background-color: var(--color-brand-orange) !important;
+  opacity: 0.9;
+}

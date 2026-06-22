@@ -51,10 +51,10 @@ export default function CustomerFooter() {
         <div>
           <h4 className="font-bold text-lg mb-4 text-[var(--color-brand-kraft)]">Our Services</h4>
           <ul className="space-y-3 text-sm opacity-80">
-            <li>Moving (Hire A Mover)</li>
-            <li>Box Hire (Hire A Box)</li>
-            <li>Packing (Hire A Packer)</li>
-            <li>Storage (Hire Storage)</li>
+            <li><a href="https://www.hireamover.com.au" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-brand-orange)] transition-colors">Moving (Hire A Mover)</a></li>
+            <li><Link href="/" className="hover:text-[var(--color-brand-orange)] transition-colors">Box Hire (Hire A Box)</Link></li>
+            <li><a href="https://www.hireapacker.com.au" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-brand-orange)] transition-colors">Packing (Hire A Packer)</a></li>
+            <li><a href="https://www.hirestorage.com.au" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-brand-orange)] transition-colors">Storage (Hire Storage)</a></li>
           </ul>
         </div>
       </div>

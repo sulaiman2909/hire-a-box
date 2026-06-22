@@ -15,7 +15,7 @@ type PackageContent = {
   depositPerUnit: number;
 };
 
-type SerializedProduct = {
+export type SerializedProduct = {
   id: string;
   name: string;
   description: string | null;
@@ -92,7 +92,7 @@ export default function BuyClientPage({ packages, individualItems, essentials }:
     <div className="space-y-12">
       {/* Packages Section */}
       {packages.length > 0 && (
-        <section>
+        <section id="packages">
           <span className="section-eyebrow">All-in-one solutions</span>
           <h2 className="text-2xl md:text-3xl font-heading font-bold mb-6 text-[var(--color-brand-charcoal)]">
             Moving Supplies Packages
@@ -123,7 +123,7 @@ export default function BuyClientPage({ packages, individualItems, essentials }:
 
       {/* Individual Items Section */}
       {individualItems.length > 0 && (
-        <section>
+        <section id="individual-items">
           <span className="section-eyebrow">Basics</span>
           <h2 className="text-2xl md:text-3xl font-heading font-bold mb-6 text-[var(--color-brand-charcoal)]">
             Individual Boxes & Items
