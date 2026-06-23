@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { useCart } from './CartProvider';
 import CartSummary from './CartSummary';
 import { calculateOrderTotals, FREE_DELIVERY_THRESHOLD_BUY, FREE_DELIVERY_THRESHOLD_HIRE } from '@/lib/domain/pricing';
@@ -26,7 +27,6 @@ export default function GlobalCart() {
   
   const subtotalBeforeDiscount = activeMode === 'hire' ? (totals.hireTotal - totals.deliveryFee) : totals.saleTotal - totals.deliveryFee;
   const discountAmount = calculateDiscount(subtotalBeforeDiscount, state.promoCode);
-  const subtotalAfterDiscount = subtotalBeforeDiscount - discountAmount;
   
   const totalAmount = (activeMode === 'hire' ? totals.hireTotal : totals.saleTotal) - discountAmount;
 
@@ -59,7 +59,7 @@ export default function GlobalCart() {
         <div className="flex flex-col items-center justify-center py-12 text-center h-full">
           <div className="text-4xl mb-4 opacity-50">🛒</div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Your {activeMode} cart is empty</h3>
-          <p className="text-sm text-[var(--text-secondary)]">Looks like you haven't added anything yet.</p>
+          <p className="text-sm text-[var(--text-secondary)]">Looks like you haven&apos;t added anything yet.</p>
         </div>
       ) : (
         <div className="flex flex-col">
@@ -70,7 +70,7 @@ export default function GlobalCart() {
             >
               {/* Thumbnail */}
               <div className="w-10 h-10 bg-white rounded-md flex items-center justify-center flex-shrink-0 border border-[var(--border-color)] overflow-hidden">
-                <img src={getProductImageUrl(item.name)} alt={item.name} className="w-full h-full object-contain p-0.5" />
+                <Image src={getProductImageUrl(item.name)} alt={item.name} width={40} height={40} className="w-full h-full object-contain p-0.5" />
               </div>
               
               {/* Info Column */}

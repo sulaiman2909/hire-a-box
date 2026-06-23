@@ -1,5 +1,4 @@
 import React from 'react';
-import { Star } from 'lucide-react';
 
 const testimonials = [
   {
@@ -86,7 +85,7 @@ export default function TestimonialsSlider() {
                 ))}
               </div>
               <p className="font-sans font-normal text-[16px] leading-[1.6] text-[#2B2B28] italic opacity-95 flex-grow">
-                "{review.text}"
+                &quot;{review.text}&quot;
               </p>
             </div>
           ))}

@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { calculateOrderTotals, calculateDeliveryFee, FREE_DELIVERY_THRESHOLD_HIRE, FREE_DELIVERY_THRESHOLD_BUY, DELIVERY_FEE } from '../../src/lib/domain/pricing';
+import { calculateOrderTotals, calculateDeliveryFee, FREE_DELIVERY_THRESHOLD_HIRE, DELIVERY_FEE } from '../../src/lib/domain/pricing';
 import { OrderType } from '@prisma/client';
 
 test('calculateDeliveryFee - Hire below threshold', () => {

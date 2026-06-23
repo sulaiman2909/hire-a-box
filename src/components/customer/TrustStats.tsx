@@ -13,7 +13,7 @@ function useCountUp(end: number, duration: number = 1000) {
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
-      setCount(end);
+      requestAnimationFrame(() => setCount(end));
       return;
     }
 
@@ -45,7 +45,16 @@ function useCountUp(end: number, duration: number = 1000) {
   return { count, elementRef };
 }
 
-function StatItem({ value, suffix = '', title, subtitle, isGoogle = false, decimals = 0 }: any) {
+interface StatItemProps {
+  value: number;
+  suffix?: string;
+  title: string;
+  subtitle?: string;
+  isGoogle?: boolean;
+  decimals?: number;
+}
+
+function StatItem({ value, suffix = '', title, subtitle, isGoogle = false, decimals = 0 }: StatItemProps) {
   const { count, elementRef } = useCountUp(value, 1500);
   
   const displayValue = count === value ? value : count;
@@ -130,7 +139,7 @@ export default function TrustStats() {
             </svg>
             
             <p className="text-[17px] md:text-[18px] text-[var(--color-brand-charcoal)] leading-[1.7] font-sans font-normal italic relative z-10 mb-8 mt-4 opacity-90">
-              "Have used Hire A Box for 4 moves and highly recommend them. Very responsive, quality products efficiently delivered. Really makes the stress of moving just a bit easier. The pickup when you are ready even months after the move, is amazing. They’ve thought of everything so you won’t have to. The package sizes per home size are spot on too."
+              &quot;Have used Hire A Box for 4 moves and highly recommend them. Very responsive, quality products efficiently delivered. Really makes the stress of moving just a bit easier. The pickup when you are ready even months after the move, is amazing. They&apos;ve thought of everything so you won&apos;t have to. The package sizes per home size are spot on too.&quot;
             </p>
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10 mt-auto pt-6 border-t border-[var(--color-brand-charcoal)]/5">

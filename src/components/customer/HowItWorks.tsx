@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, CalendarDays, CreditCard, Truck, PackageOpen, CalendarCheck, RefreshCw, Banknote, Layers, Boxes, Package, Home, ShieldCheck, BadgeCheck } from 'lucide-react';
+import { ShoppingCart, CalendarDays, CreditCard, Truck, PackageOpen, CalendarCheck, RefreshCw, Banknote, Home, ShieldCheck, BadgeCheck } from 'lucide-react';
 
 interface HowItWorksProps {
   mode: 'hire' | 'buy';
@@ -36,19 +36,9 @@ export default function HowItWorks({ mode }: HowItWorksProps) {
                   { t: 'We collect', d: 'Driver counts boxes at your new address', icon: RefreshCw },
                   { t: 'Deposit refunded', d: 'Within 5 business days', icon: Banknote },
                 ].map((step, i) => {
-                  const lgOrder = [1, 2, 3, 4, 8, 7, 6, 5][i];
-                  const mdOrder = [1, 2, 4, 3, 5, 6, 8, 7][i];
-                  const orderClassesList = [
-                    "order-1 md:order-1 lg:order-1",
-                    "order-2 md:order-2 lg:order-2",
-                    "order-3 md:order-4 lg:order-3",
-                    "order-4 md:order-3 lg:order-4",
-                    "order-5 md:order-5 lg:order-8",
-                    "order-6 md:order-6 lg:order-7",
-                    "order-7 md:order-8 lg:order-6",
-                    "order-8 md:order-7 lg:order-5"
-                  ];
-                  const orderClass = orderClassesList[i];
+                  const lgOrder = i + 1;
+                  const mdOrder = i + 1;
+                  const orderClass = `order-${i + 1}`;
 
                   const isRightMostLg = lgOrder % 4 === 0;
                   const isRightMostMd = mdOrder % 2 === 0;
