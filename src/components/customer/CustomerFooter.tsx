@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { PackageOpen } from 'lucide-react';
 
 export default function CustomerFooter() {
@@ -11,9 +12,14 @@ export default function CustomerFooter() {
             <h3 className="text-2xl font-bold mb-2">Complete your move</h3>
             <p className="opacity-90 font-medium">Book a Hire A Mover or Hire A Packer service and get 10% back on your boxes!</p>
           </div>
-          <button className="mt-6 md:mt-0 bg-white text-[var(--color-brand-orange)] font-bold py-3 px-8 rounded-md hover:bg-[var(--color-brand-warm-white)] transition-colors whitespace-nowrap">
-            Claim 10% Rebate
-          </button>
+          <a 
+            href="https://www.hireamover.com.au" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="mt-6 md:mt-0 bg-white text-[var(--color-brand-orange)] font-bold py-3 px-8 rounded-md hover:bg-[var(--color-brand-warm-white)] transition-colors whitespace-nowrap inline-block text-center"
+          >
+            Get Quote
+          </a>
         </div>
       </div>
 

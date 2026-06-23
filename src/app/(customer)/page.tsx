@@ -8,7 +8,7 @@ import ComparisonTable from '@/components/customer/ComparisonTable';
 import SafeImage from '@/components/customer/SafeImage';
 import TestimonialsSlider from '@/components/customer/TestimonialsSlider';
 import { CheckCircle2, Clock, Truck, ShieldCheck, MapPin, Star, Package, RefreshCw, HandHeart, Check, Info, Users, XCircle, ShoppingCart, CalendarDays, CreditCard, PackageOpen, CalendarCheck, Banknote, Layers, Boxes, Home, Leaf, Award, Wallet, CalendarClock, BadgeCheck, Infinity, BedSingle, BedDouble, Building, Building2, ChevronDown } from 'lucide-react';
-import AustraliaMap from '@/components/customer/AustraliaMap';
+
 import TrustStats from '@/components/customer/TrustStats';
 
 export default function LandingPage() {
@@ -428,12 +428,12 @@ export default function LandingPage() {
                           </ul>
 
                           {/* Action Button */}
-                          <Link href={`/${pricingMode}`} className="btn-primary w-full text-center py-2.5 text-[15px] opacity-0 pointer-events-none absolute h-0 w-0">
+                          <Link href={`/${pricingMode}#individual-items`} className="btn-primary w-full text-center py-2.5 text-[15px] opacity-0 pointer-events-none absolute h-0 w-0">
                             {/* Hidden visually, handled by left column CTA when homeSize is active */}
                             {card.cta}
                           </Link>
                           {!homeSize && (
-                            <Link href={`/${pricingMode}`} className="btn-primary w-full text-center py-2.5 text-[15px]">
+                            <Link href={`/${pricingMode}#individual-items`} className="btn-primary w-full text-center py-2.5 text-[15px]">
                               {card.cta}
                             </Link>
                           )}
@@ -557,31 +557,7 @@ export default function LandingPage() {
                         <p className="text-[16px] text-[#5A5A52]">Providing fast, reliable moving box delivery to major metropolitan areas.</p>
                       </div>
 
-                      {/* Map Graphic (Hidden on very small screens, scales otherwise) */}
-                      <div className="hidden sm:block relative max-w-[600px] mx-auto mb-16 aspect-[5/4]">
-                        <AustraliaMap className="w-full h-full text-[var(--color-brand-orange)] opacity-15" />
-                        
-                        {/* Approximate Pin Placements */}
-                        <div className="absolute top-[68%] left-[83%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
-                          <MapPin className="text-[var(--color-brand-orange)] w-5 h-5 mb-1" />
-                          <span className="font-heading font-semibold text-[12px] text-[var(--color-brand-charcoal)]">Sydney</span>
-                        </div>
-                        
-                        <div className="absolute top-[82%] left-[76%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
-                          <MapPin className="text-[var(--color-brand-orange)] w-5 h-5 mb-1" />
-                          <span className="font-heading font-semibold text-[12px] text-[var(--color-brand-charcoal)]">Melbourne</span>
-                        </div>
-                        
-                        <div className="absolute top-[75%] left-[68%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
-                          <MapPin className="text-[var(--color-brand-orange)] w-5 h-5 mb-1" />
-                          <span className="font-heading font-semibold text-[12px] text-[var(--color-brand-charcoal)]">Adelaide</span>
-                        </div>
-                        
-                        <div className="absolute top-[65%] left-[25%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2">
-                          <MapPin className="text-[var(--color-brand-orange)] w-5 h-5 mb-1" />
-                          <span className="font-heading font-semibold text-[12px] text-[var(--color-brand-charcoal)]">Perth</span>
-                        </div>
-                      </div>
+
 
                       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[

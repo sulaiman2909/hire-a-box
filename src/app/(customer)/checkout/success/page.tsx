@@ -94,7 +94,7 @@ export default async function CheckoutSuccessPage({ searchParams }: { searchPara
             <h3 className="font-bold text-[var(--color-brand-charcoal)] mb-2">Hire A Mover</h3>
             <p className="text-xs text-[#6B6862] mb-4">Professional removalists for a seamless transition.</p>
             <div className="text-sm font-semibold text-[var(--color-brand-orange)] mb-4 bg-orange-50 py-1 px-2 rounded inline-block">Get 10% back on your boxes</div>
-            <Link href="#" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Book a Mover</Link>
+            <Link href="https://www.hireamover.com.au/" target="_blank" rel="noopener noreferrer" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Book a Mover</Link>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-[#E6E0D4] shadow-sm hover:shadow-md transition-shadow">
@@ -104,7 +104,7 @@ export default async function CheckoutSuccessPage({ searchParams }: { searchPara
             <h3 className="font-bold text-[var(--color-brand-charcoal)] mb-2">Hire A Packer</h3>
             <p className="text-xs text-[#6B6862] mb-4">Expert packing and unpacking services.</p>
             <div className="text-sm font-semibold text-[var(--color-brand-orange)] mb-4 bg-orange-50 py-1 px-2 rounded inline-block">Get 10% back on your boxes</div>
-            <Link href="#" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Book a Packer</Link>
+            <Link href="https://www.hireapacker.com.au/" target="_blank" rel="noopener noreferrer" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Book a Packer</Link>
           </div>
 
           <div className="bg-white p-6 rounded-xl border border-[#E6E0D4] shadow-sm hover:shadow-md transition-shadow">
@@ -114,7 +114,7 @@ export default async function CheckoutSuccessPage({ searchParams }: { searchPara
             <h3 className="font-bold text-[var(--color-brand-charcoal)] mb-2">Hire Storage</h3>
             <p className="text-xs text-[#6B6862] mb-4">Secure, affordable storage facilities.</p>
             <div className="text-sm font-semibold text-[var(--color-brand-orange)] mb-4 bg-orange-50 py-1 px-2 rounded inline-block">Get 10% back on your boxes</div>
-            <Link href="#" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Find Storage</Link>
+            <Link href="https://www.hireamover.com.au/storage/" target="_blank" rel="noopener noreferrer" className="block w-full py-2 border border-[#E6E0D4] text-[var(--color-brand-charcoal)] rounded text-sm font-semibold hover:bg-stone-50 transition-colors">Find Storage</Link>
           </div>
         </div>
       </div>
