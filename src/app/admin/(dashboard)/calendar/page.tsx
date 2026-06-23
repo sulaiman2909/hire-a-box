@@ -4,11 +4,11 @@ import AdminCalendarClient from '@/components/admin/AdminCalendarClient';
 import { prisma } from '@/lib/prisma';
 
 export default async function CalendarPage() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const dateRangeStart = new Date();
+  dateRangeStart.setDate(dateRangeStart.getDate() - 90);
   
-  const sixtyDaysFromNow = new Date();
-  sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
+  const dateRangeEnd = new Date();
+  dateRangeEnd.setDate(dateRangeEnd.getDate() + 365);
 
   const [drivers, availabilities, orders] = await Promise.all([
     prisma.driver.findMany({
@@ -18,16 +18,16 @@ export default async function CalendarPage() {
     prisma.driverAvailability.findMany({
       where: {
         date: {
-          gte: thirtyDaysAgo,
-          lte: sixtyDaysFromNow
+          gte: dateRangeStart,
+          lte: dateRangeEnd
         }
       }
     }),
     prisma.order.findMany({
       where: {
         deliveryDate: {
-          gte: thirtyDaysAgo,
-          lte: sixtyDaysFromNow
+          gte: dateRangeStart,
+          lte: dateRangeEnd
         },
         driverId: { not: null },
         status: { notIn: [OrderStatus.COLLECTED, OrderStatus.CANCELLED] } // Only show active/pending allocations

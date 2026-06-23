@@ -88,7 +88,7 @@ export default function AdminCalendarClient({ drivers, availabilities, orders }:
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#C8A47C] overflow-hidden" style={{ opacity: isPending ? 0.6 : 1 }}>
+    <div className="bg-white rounded shadow-sm border border-[#C8A47C] overflow-hidden" style={{ opacity: isPending ? 0.6 : 1 }}>
       {/* Toolbar */}
       <div className="p-4 border-b border-stone-200 bg-[#FDFCFB] flex flex-col md:flex-row justify-between items-center gap-4">
         
