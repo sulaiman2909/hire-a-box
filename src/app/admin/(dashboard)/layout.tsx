@@ -17,8 +17,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-stone-200 flex flex-col shadow-sm">
         <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-          <div className="font-heading font-bold text-xl tracking-tight">HAB Ops</div>
-          <div className="text-[10px] font-bold px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full uppercase tracking-wider">Admin</div>
+          <Link href="/admin">
+            <img src="/header-logo.png" alt="Hire A Box" className="h-8 w-auto object-contain" />
+          </Link>
+          <div className="text-[10px] font-bold px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full uppercase tracking-wider shrink-0 ml-2">Admin</div>
         </div>
         
         <div className="p-4 flex-grow">
@@ -38,18 +40,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Orders
             </Link>
             <Link 
-              href="/admin/orders/new" 
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-stone-50 text-stone-700 font-medium transition-colors"
-            >
-              <PlusCircle size={18} className="text-stone-400" />
-              New Order
-            </Link>
-            <Link 
               href="/admin/calendar" 
               className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-stone-50 text-stone-700 font-medium transition-colors"
             >
               <Calendar size={18} className="text-stone-400" />
-              Calendar
+              Driver Calendar
             </Link>
 
           </nav>

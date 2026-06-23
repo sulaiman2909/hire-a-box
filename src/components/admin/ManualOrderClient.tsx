@@ -175,7 +175,7 @@ export default function ManualOrderClient({ products }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Customer Details */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-stone-200 space-y-4">
+        <div className="bg-white p-6 rounded shadow-sm border border-stone-200 space-y-4">
           <h2 className="font-bold text-[var(--color-brand-charcoal)] border-b border-stone-100 pb-2">Customer Details</h2>
           <div>
             <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Full Name</label>
@@ -194,7 +194,7 @@ export default function ManualOrderClient({ products }: Props) {
         </div>
 
         {/* Delivery Details */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-stone-200 space-y-4">
+        <div className="bg-white p-6 rounded shadow-sm border border-stone-200 space-y-4">
           <h2 className="font-bold text-[var(--color-brand-charcoal)] border-b border-stone-100 pb-2">Delivery Details</h2>
           <div>
             <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Street Address</label>
@@ -230,7 +230,7 @@ export default function ManualOrderClient({ products }: Props) {
       </div>
 
       {/* Items */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-stone-200 space-y-4">
+      <div className="bg-white p-6 rounded shadow-sm border border-stone-200 space-y-4">
         <div className="flex items-center justify-between border-b border-stone-100 pb-2">
           <h2 className="font-bold text-[var(--color-brand-charcoal)]">Order Items</h2>
           <button type="button" onClick={handleAddItem} className="flex items-center gap-1 px-3 py-1.5 bg-stone-100 text-stone-700 text-sm font-medium rounded hover:bg-stone-200 transition-colors">
@@ -244,10 +244,37 @@ export default function ManualOrderClient({ products }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map(item => (
+            {items.map(item => {
+              const selectedProduct = products.find(p => p.id === item.productId);
+              return (
               <div key={item.id} className="flex items-center gap-3 bg-stone-50 p-3 rounded border border-stone-100">
                 <div className="flex-1">
-                  <select required value={item.productId} onChange={e => updateItem(item.id, 'productId', e.target.value)} className="w-full border border-stone-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-orange)]">
+                  <select required value={item.productId} onChange={e => {
+                      const newProductId = e.target.value;
+                      const newProduct = products.find(p => p.id === newProductId);
+                      let newLineType = item.lineType;
+                      
+                      if (newProduct) {
+                        const validTypes = [];
+                        if (newProduct.role === 'PACKAGE') {
+                          validTypes.push('HIRE');
+                          validTypes.push('BUY_NEW'); // Buy for packages
+                        } else if (newProduct.role === 'ADDON') {
+                          validTypes.push('BUY_NEW');
+                        } else {
+                          // CORE_PRODUCT
+                          if (newProduct.hirePrice !== null) validTypes.push('HIRE');
+                          if (newProduct.buyPriceNew !== null) validTypes.push('BUY_NEW');
+                          if (newProduct.buyPriceUsed !== null) validTypes.push('BUY_USED');
+                        }
+                        
+                        if (!validTypes.includes(newLineType) && validTypes.length > 0) {
+                           newLineType = validTypes[0] as any;
+                        }
+                      }
+                      
+                      setItems(items.map(i => i.id === item.id ? { ...i, productId: newProductId, lineType: newLineType } : i));
+                  }} className="w-full border border-stone-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-orange)]">
                     <option value="">-- Select Product --</option>
                     {products.map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -255,10 +282,29 @@ export default function ManualOrderClient({ products }: Props) {
                   </select>
                 </div>
                 <div className="w-40">
-                  <select required value={item.lineType} onChange={e => updateItem(item.id, 'lineType', e.target.value)} className="w-full border border-stone-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-orange)]">
-                    <option value="HIRE">Hire</option>
-                    <option value="BUY_NEW">Buy (New)</option>
-                    <option value="BUY_USED">Buy (Used)</option>
+                  <select required value={item.lineType} onChange={e => updateItem(item.id, 'lineType', e.target.value)} disabled={!selectedProduct} className="w-full border border-stone-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:border-[var(--color-brand-orange)] disabled:bg-stone-100 disabled:text-stone-400">
+                    {!selectedProduct ? (
+                      <option value="">-</option>
+                    ) : selectedProduct.role === 'PACKAGE' ? (
+                      <>
+                        <option value="HIRE">Hire</option>
+                        <option value="BUY_NEW">Buy</option>
+                      </>
+                    ) : selectedProduct.role === 'ADDON' ? (
+                      <option value="BUY_NEW">Buy</option>
+                    ) : (
+                      <>
+                        {selectedProduct.hirePrice !== null && (
+                          <option value="HIRE">Hire</option>
+                        )}
+                        {selectedProduct.buyPriceNew !== null && (
+                          <option value="BUY_NEW">Buy (New)</option>
+                        )}
+                        {selectedProduct.buyPriceUsed !== null && (
+                          <option value="BUY_USED">Buy (Used)</option>
+                        )}
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="w-24">
@@ -268,7 +314,8 @@ export default function ManualOrderClient({ products }: Props) {
                   <Trash2 size={16} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
