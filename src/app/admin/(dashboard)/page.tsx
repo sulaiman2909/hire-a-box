@@ -17,105 +17,91 @@ export default async function AdminDashboardPage() {
 
   const fourteenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
 
-  // Parallelize all queries for speed
+  // Optimize: Run exactly 5 parallel queries to avoid pool exhaustion but get lightning fast responses
   const [
-    unallocatedCount,
-    actionNeededCount,
-    activeHireOrdersCount,
+    statusCounts,
     depositLiabilityAggr,
-    outstandingAggr,
-    
-    todayAggr,
-    weekAggr,
-    monthAggr,
-
-    pendingCount,
-    allocatedCount,
-    deliveredCount,
-    collectedCount,
-
-    deliveriesToday,
-    deliveriesThisWeek,
-    
-    recentOrders
+    actionNeededCount,
+    allTimeOrders,
+    deliveriesThisWeek
   ] = await Promise.all([
-    // 1. Unallocated Orders
-    prisma.order.count({ where: { status: 'UNALLOCATED' } }),
-
-    // 2. Action needed (Deliveries today/tomorrow that aren't delivered/collected)
+    prisma.order.groupBy({
+      by: ['status', 'type'],
+      _count: true
+    }),
+    prisma.order.aggregate({
+      where: {
+        type: 'HIRE',
+        status: { notIn: ['COLLECTED', 'CANCELLED'] }
+      },
+      _sum: { depositTotal: true, depositRefunded: true, depositForfeited: true }
+    }),
     prisma.order.count({ 
       where: { 
         deliveryDate: { gte: todayStart, lt: nextDayStart },
         status: { in: ['PENDING', 'UNALLOCATED', 'ALLOCATED'] }
       } 
     }),
-
-    // 3. Active hire orders
-    prisma.order.count({
-      where: {
-        type: 'HIRE',
-        status: { notIn: ['COLLECTED', 'CANCELLED'] }
-      }
-    }),
-
-    // 4. Total Deposit Liability (Refundable deposits held on active hire orders)
-    prisma.order.aggregate({
-      where: {
-        type: 'HIRE',
-        status: { notIn: ['COLLECTED', 'CANCELLED'] }
-      },
-      _sum: { depositTotal: true }
-    }),
-
-    // 5. Total Outstanding Amount (GrandTotal - AmountPaid) for non-cancelled orders
-    // We fetch raw records and sum to avoid complex DB math if Prisma aggregate math is limited
     prisma.order.findMany({
       where: { status: { not: 'CANCELLED' } },
-      select: { grandTotal: true, amountPaid: true }
+      select: { createdAt: true, grandTotal: true, amountPaid: true, hireTotal: true, buyTotal: true, depositForfeited: true, type: true }
     }),
-
-    // 6. Revenue Aggregates
-    prisma.order.aggregate({
-      where: { createdAt: { gte: todayStart }, status: { not: 'CANCELLED' } },
-      _sum: { hireTotal: true, buyTotal: true }
-    }),
-    prisma.order.aggregate({
-      where: { createdAt: { gte: thisWeekStart }, status: { not: 'CANCELLED' } },
-      _sum: { hireTotal: true, buyTotal: true }
-    }),
-    prisma.order.aggregate({
-      where: { createdAt: { gte: thisMonthStart }, status: { not: 'CANCELLED' } },
-      _sum: { hireTotal: true, buyTotal: true }
-    }),
-
-    // 7. Status Breakdowns
-    prisma.order.count({ where: { status: 'PENDING' } }),
-    prisma.order.count({ where: { status: 'ALLOCATED' } }),
-    prisma.order.count({ where: { status: 'DELIVERED' } }),
-    prisma.order.count({ where: { status: 'COLLECTED' } }),
-
-    // 8. Deliveries Scheduled
     prisma.order.findMany({
-      where: { deliveryDate: { gte: todayStart, lt: tomorrowStart }, driverId: { not: null }, status: { notIn: ['CANCELLED', 'COLLECTED'] } },
+      where: { deliveryDate: { gte: todayStart, lt: new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000) }, driverId: { not: null }, status: { notIn: ['CANCELLED', 'COLLECTED'] } },
       include: { driver: true }
-    }),
-    prisma.order.findMany({
-      where: { deliveryDate: { gte: thisWeekStart }, driverId: { not: null }, status: { notIn: ['CANCELLED', 'COLLECTED'] } },
-      include: { driver: true }
-    }),
-
-    // 9. Trend Data (Last 14 days)
-    prisma.order.findMany({
-      where: { createdAt: { gte: fourteenDaysAgo }, status: { not: 'CANCELLED' } },
-      select: { createdAt: true, grandTotal: true, type: true }
     })
   ]);
 
-  // Process Outstanding
-  const outstandingTotal = outstandingAggr.reduce((acc, order) => {
-    const diff = Number(order.grandTotal) - Number(order.amountPaid);
-    return acc + (diff > 0 ? diff : 0);
-  }, 0);
+  // Compute metrics locally
+  const unallocatedCount = statusCounts.filter(s => s.status === 'UNALLOCATED').reduce((sum, s) => sum + s._count, 0);
+  const activeHireOrdersCount = statusCounts.filter(s => s.type === 'HIRE' && s.status !== 'COLLECTED' && s.status !== 'CANCELLED').reduce((sum, s) => sum + s._count, 0);
+  
+  const pendingCount = statusCounts.find(s => s.status === 'PENDING' && s.type === 'HIRE')?._count || 0;
+  const allocatedCount = statusCounts.find(s => s.status === 'ALLOCATED' && s.type === 'HIRE')?._count || 0;
+  const deliveredCount = statusCounts.find(s => s.status === 'DELIVERED' && s.type === 'HIRE')?._count || 0;
+  const collectedCount = statusCounts.find(s => s.status === 'COLLECTED' && s.type === 'HIRE')?._count || 0;
+
+  const pendingCountBuy = statusCounts.find(s => s.status === 'PENDING' && s.type === 'BUY')?._count || 0;
+  const allocatedCountBuy = statusCounts.find(s => s.status === 'ALLOCATED' && s.type === 'BUY')?._count || 0;
+  const deliveredCountBuy = statusCounts.find(s => s.status === 'DELIVERED' && s.type === 'BUY')?._count || 0;
+
+  let outstandingTotal = 0;
+  let todayHire = 0, todayBuy = 0, todayForfeited = 0;
+  let weekHire = 0, weekBuy = 0, weekForfeited = 0;
+  let monthHire = 0, monthBuy = 0, monthForfeited = 0;
+  const recentOrders = [];
+
+  for (const o of allTimeOrders) {
+    const diff = Number(o.grandTotal) - Number(o.amountPaid);
+    if (diff > 0) outstandingTotal += diff;
+
+    if (o.createdAt >= todayStart) {
+      todayHire += Number(o.hireTotal);
+      todayBuy += Number(o.buyTotal);
+      todayForfeited += Number(o.depositForfeited);
+    }
+    if (o.createdAt >= thisWeekStart) {
+      weekHire += Number(o.hireTotal);
+      weekBuy += Number(o.buyTotal);
+      weekForfeited += Number(o.depositForfeited);
+    }
+    if (o.createdAt >= thisMonthStart) {
+      monthHire += Number(o.hireTotal);
+      monthBuy += Number(o.buyTotal);
+      monthForfeited += Number(o.depositForfeited);
+    }
+    if (o.createdAt >= fourteenDaysAgo) {
+      recentOrders.push(o);
+    }
+  }
+
+  recentOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const todayAggr = { _sum: { hireTotal: todayHire, buyTotal: todayBuy, depositForfeited: todayForfeited } };
+  const weekAggr = { _sum: { hireTotal: weekHire, buyTotal: weekBuy, depositForfeited: weekForfeited } };
+  const monthAggr = { _sum: { hireTotal: monthHire, buyTotal: monthBuy, depositForfeited: monthForfeited } };
+
+  const deliveriesToday = deliveriesThisWeek.filter(o => o.deliveryDate >= todayStart && o.deliveryDate < tomorrowStart);
 
   // Process Deliveries by Driver
   const processDeliveries = (orders: any[]) => {
@@ -159,25 +145,32 @@ export default async function AdminDashboardPage() {
     unallocatedCount,
     actionNeededCount,
     activeHireOrdersCount,
-    depositLiability: Number(depositLiabilityAggr._sum?.depositTotal || 0),
+    depositLiability: Number(depositLiabilityAggr._sum?.depositTotal || 0) 
+                      - Number(depositLiabilityAggr._sum?.depositRefunded || 0) 
+                      - Number(depositLiabilityAggr._sum?.depositForfeited || 0),
     outstandingTotal,
     revenueToday: {
-      hire: Number(todayAggr._sum?.hireTotal || 0),
+      hire: Number(todayAggr._sum?.hireTotal || 0) + Number(todayAggr._sum?.depositForfeited || 0),
       sale: Number(todayAggr._sum?.buyTotal || 0)
     },
     revenueWeek: {
-      hire: Number(weekAggr._sum?.hireTotal || 0),
+      hire: Number(weekAggr._sum?.hireTotal || 0) + Number(weekAggr._sum?.depositForfeited || 0),
       sale: Number(weekAggr._sum?.buyTotal || 0)
     },
     revenueMonth: {
-      hire: Number(monthAggr._sum?.hireTotal || 0),
+      hire: Number(monthAggr._sum?.hireTotal || 0) + Number(monthAggr._sum?.depositForfeited || 0),
       sale: Number(monthAggr._sum?.buyTotal || 0)
     },
-    statusCounts: {
+    statusCountsHire: {
       pending: pendingCount,
       allocated: allocatedCount,
       delivered: deliveredCount,
       collected: collectedCount
+    },
+    statusCountsBuy: {
+      pending: pendingCountBuy,
+      allocated: allocatedCountBuy,
+      delivered: deliveredCountBuy
     },
     dispatchToday,
     dispatchThisWeek,

@@ -2,8 +2,8 @@
 
 import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, MapPin, Calendar, Clock, User, Phone, CheckCircle, XCircle, RefreshCw, Truck, Edit2, Save, X, Trash2 } from 'lucide-react';
-import { updateOrderAllocation, resendOrderEmail, updateOrderDeliveryAddress, updateOrderPayment, deleteOrder } from '@/app/actions/orderAdminActions';
+import { Mail, MapPin, Calendar, Clock, User, Phone, CheckCircle, XCircle, RefreshCw, Truck, Edit2, Save, X, Trash2, Loader2 } from 'lucide-react';
+import { updateOrderAllocation, resendOrderEmail, updateOrderDeliveryAddress, updateOrderPayment, deleteOrder, resolveDeposit, updateOrderStatus } from '@/app/actions/orderAdminActions';
 
 type Props = {
   order: any;
@@ -35,15 +35,66 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [editAmountPaid, setEditAmountPaid] = useState<number>(order.amountPaid);
 
-  const handleSaveAddress = () => {
+  // Deposit Resolution State
+  const [isResolvingDeposit, setIsResolvingDeposit] = useState(false);
+  const [resolveType, setResolveType] = useState<'REFUND' | 'FORFEIT'>('REFUND');
+  const remainingDeposit = order.depositTotal - order.depositRefunded - order.depositForfeited;
+  const [resolveAmount, setResolveAmount] = useState<number>(remainingDeposit);
+  const [resolveReason, setResolveReason] = useState<string>('');
+
+  // Sync state with server props when Next.js refreshes the data
+  React.useEffect(() => {
+    setEditDriverId(order.driverId || '');
+    setEditDate(new Date(order.deliveryDate).toISOString().split('T')[0]);
+    setEditSlot(order.deliverySlot);
+    
+    setEditAddress({
+      deliveryAddress: order.deliveryAddress || '',
+      deliverySuburb: order.deliverySuburb || '',
+      deliveryPostcode: order.deliveryPostcode || '',
+      pickupPostcode: order.pickupPostcode || ''
+    });
+    
+    setEditAmountPaid(order.amountPaid);
+  }, [order]);
+
+  const handleResolveDeposit = () => {
     startTransition(async () => {
       try {
-        await updateOrderDeliveryAddress(order.id, {
+        await resolveDeposit(order.id, resolveAmount, resolveType, resolveReason);
+        setIsResolvingDeposit(false);
+        setResolveReason('');
+        router.refresh();
+      } catch (err: any) {
+        alert(err.message || 'Failed to resolve deposit.');
+      }
+    });
+  };
+
+  const handleSaveAddress = () => {
+    const postcodeRegex = /^\d{4}$/;
+    if (!postcodeRegex.test(editAddress.deliveryPostcode)) {
+      alert('Delivery Postcode must be exactly 4 digits.');
+      return;
+    }
+    if (order.type === 'HIRE' && editAddress.pickupPostcode && !postcodeRegex.test(editAddress.pickupPostcode)) {
+      alert('Pickup Postcode must be exactly 4 digits.');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await updateOrderDeliveryAddress(order.id, {
           deliveryAddress: editAddress.deliveryAddress,
           deliverySuburb: editAddress.deliverySuburb,
           deliveryPostcode: editAddress.deliveryPostcode,
           pickupPostcode: order.type === 'HIRE' ? editAddress.pickupPostcode : undefined,
         });
+        
+        if (res.warning) {
+          alert(res.warning);
+        }
+        
         setIsEditingAddress(false);
         router.refresh();
       } catch (err: any) {
@@ -78,6 +129,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
   };
 
   const handleResendEmail = (type: 'CLIENT' | 'DRIVER') => {
+    if (isEditingAllocation || isEditingAddress || isEditingPayment) {
+      alert('You have unsaved changes open. Please click "Save" on your edits before resending the email so the client receives the updated information.');
+      return;
+    }
+
     if (!confirm(`Are you sure you want to resend the ${type} email?`)) return;
     startTransition(async () => {
       try {
@@ -107,6 +163,18 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
     });
   };
 
+  const handleUpdateStatus = (newStatus: string) => {
+    if (!confirm(`Are you sure you want to change the order status to ${newStatus}?`)) return;
+    startTransition(async () => {
+      try {
+        await updateOrderStatus(order.id, newStatus as any);
+        router.refresh();
+      } catch (err: any) {
+        alert(err.message || 'Failed to update status.');
+      }
+    });
+  };
+
   const StatusBadge = ({ status }: { status: string }) => {
     if (status === 'UNALLOCATED') return <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded uppercase tracking-wider animate-pulse border border-red-200">UNALLOCATED</span>;
     if (status === 'ALLOCATED') return <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded uppercase tracking-wider">ALLOCATED</span>;
@@ -121,14 +189,41 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
   // Here, we just warn if they pick a slot that isn't pre-loaded as available.
 
   return (
-    <div className="space-y-6 opacity-100 transition-opacity" style={{ opacity: isPending ? 0.6 : 1 }}>
+    <>
+      {isPending && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm">
+          <Loader2 className="w-10 h-10 text-[var(--color-brand-orange)] animate-spin mb-3" />
+          <p className="text-[var(--color-brand-charcoal)] font-semibold text-lg shadow-sm bg-white px-4 py-2 rounded-full">Saving changes...</p>
+        </div>
+      )}
+      <div className="space-y-6 opacity-100 transition-opacity" style={{ opacity: isPending ? 0.6 : 1 }}>
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-lg shadow-sm border border-stone-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded shadow-sm border border-stone-200">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-heading font-bold text-[var(--color-brand-charcoal)]">{order.orderNumber}</h1>
-            <StatusBadge status={order.status} />
+            <select
+              value={order.status}
+              onChange={(e) => handleUpdateStatus(e.target.value)}
+              disabled={isPending}
+              className={`px-2.5 py-1 text-xs font-bold rounded uppercase tracking-wider outline-none cursor-pointer border ${
+                order.status === 'UNALLOCATED' ? 'bg-red-100 text-red-700 border-red-200 animate-pulse' :
+                order.status === 'ALLOCATED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                order.status === 'DELIVERED' ? 'bg-green-100 text-green-700 border-green-200' :
+                order.status === 'COLLECTED' ? 'bg-stone-200 text-stone-700 border-stone-300' :
+                'bg-stone-100 text-stone-600 border-stone-200'
+              }`}
+            >
+              <option value="PENDING">PENDING</option>
+              <option value="UNALLOCATED">UNALLOCATED</option>
+              <option value="ALLOCATED">ALLOCATED</option>
+              <option value="DELIVERED">DELIVERED</option>
+              {order.type === 'HIRE' && (
+                <option value="COLLECTED">COLLECTED</option>
+              )}
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
             <span className="text-xs font-bold uppercase tracking-wider bg-stone-100 text-stone-500 px-2 py-0.5 rounded">{order.type}</span>
             <span className="text-xs font-bold uppercase tracking-wider bg-orange-100 text-orange-700 px-2 py-0.5 rounded border border-orange-200">{order.source}</span>
           </div>
@@ -163,7 +258,7 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Customer Info */}
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+        <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
           <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-1.5"><User size={14} /> Customer</h2>
           <div className="space-y-3 text-sm">
             <div>
@@ -181,7 +276,7 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
         </div>
 
         {/* Delivery Info */}
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+        <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5"><MapPin size={14} /> Delivery</h2>
             {!isEditingAddress && (
@@ -235,7 +330,7 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
         </div>
 
         {/* Allocation Info */}
-        <div className={`p-5 rounded-lg shadow-sm border ${order.status === 'UNALLOCATED' ? 'bg-red-50 border-red-200' : 'bg-white border-stone-200'}`}>
+        <div className={`p-5 rounded shadow-sm border ${order.status === 'UNALLOCATED' ? 'bg-red-50 border-red-200' : 'bg-white border-stone-200'}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${order.status === 'UNALLOCATED' ? 'text-red-500' : 'text-stone-400'}`}>
               <Truck size={14} /> Allocation
@@ -304,7 +399,7 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
         
         {/* Line Items & Totals (2 columns) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-stone-200 overflow-hidden">
+          <div className="bg-white rounded shadow-sm border border-stone-200 overflow-hidden">
             <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-[#FDFCFB]">
               <h2 className="font-bold text-[var(--color-brand-charcoal)]">Line Items</h2>
             </div>
@@ -415,10 +510,131 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
               </div>
             </div>
           </div>
+
+          {/* Deposit Management Block */}
+          {order.type === 'HIRE' && order.depositTotal > 0 && (
+            <div className="bg-white rounded shadow-sm border border-stone-200 overflow-hidden">
+              <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-[#FDFCFB]">
+                <h2 className="font-bold text-[var(--color-brand-charcoal)]">Deposit Management</h2>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="p-3 bg-stone-50 rounded border border-stone-100 text-center">
+                    <div className="text-[10px] font-bold text-stone-400 uppercase mb-1">Total Held</div>
+                    <div className="text-lg font-bold text-stone-700">${order.depositTotal.toFixed(2)}</div>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded border border-green-100 text-center">
+                    <div className="text-[10px] font-bold text-green-600/80 uppercase mb-1">Refunded</div>
+                    <div className="text-lg font-bold text-green-700">${order.depositRefunded.toFixed(2)}</div>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded border border-orange-100 text-center">
+                    <div className="text-[10px] font-bold text-orange-600/80 uppercase mb-1">Forfeited</div>
+                    <div className="text-lg font-bold text-orange-700">${order.depositForfeited.toFixed(2)}</div>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded border border-blue-100 text-center">
+                    <div className="text-[10px] font-bold text-blue-600/80 uppercase mb-1">Remaining</div>
+                    <div className="text-lg font-bold text-blue-800">${remainingDeposit.toFixed(2)}</div>
+                  </div>
+                </div>
+
+                {remainingDeposit > 0 && !isResolvingDeposit && (
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => { setResolveType('REFUND'); setResolveAmount(remainingDeposit); setIsResolvingDeposit(true); }}
+                      className="px-4 py-2 bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 font-medium rounded transition-colors text-sm flex-1"
+                    >
+                      Refund Deposit
+                    </button>
+                    <button 
+                      onClick={() => { setResolveType('FORFEIT'); setResolveAmount(remainingDeposit); setIsResolvingDeposit(true); }}
+                      className="px-4 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 font-medium rounded transition-colors text-sm flex-1"
+                    >
+                      Forfeit Deposit (Revenue)
+                    </button>
+                  </div>
+                )}
+
+                {isResolvingDeposit && (
+                  <div className={`p-4 rounded border ${resolveType === 'REFUND' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+                    <h3 className={`font-bold text-sm mb-3 ${resolveType === 'REFUND' ? 'text-green-800' : 'text-orange-800'}`}>
+                      {resolveType === 'REFUND' ? 'Refund Deposit to Customer' : 'Forfeit Deposit to Revenue'}
+                    </h3>
+                    <div className="flex gap-4 mb-3">
+                      <div className="w-1/3">
+                        <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Amount ($)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          max={remainingDeposit}
+                          className="w-full border border-stone-200 rounded px-2 py-1.5 focus:outline-none focus:border-[var(--color-brand-orange)]"
+                          value={resolveAmount}
+                          onChange={e => setResolveAmount(parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Reason (Optional)</label>
+                        <input 
+                          type="text" 
+                          className="w-full border border-stone-200 rounded px-2 py-1.5 focus:outline-none focus:border-[var(--color-brand-orange)]"
+                          value={resolveReason}
+                          placeholder={resolveType === 'REFUND' ? 'e.g. Boxes returned in good condition' : 'e.g. Damaged boxes'}
+                          onChange={e => setResolveReason(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleResolveDeposit} 
+                        disabled={resolveAmount <= 0 || resolveAmount > remainingDeposit}
+                        className={`px-4 py-1.5 text-white font-semibold rounded text-sm transition-colors ${
+                          resolveType === 'REFUND' 
+                            ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-400' 
+                            : 'bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400'
+                        }`}
+                      >
+                        Confirm {resolveType === 'REFUND' ? 'Refund' : 'Forfeit'}
+                      </button>
+                      <button 
+                        onClick={() => setIsResolvingDeposit(false)} 
+                        className="px-4 py-1.5 bg-white border border-stone-200 text-stone-600 font-semibold rounded text-sm hover:bg-stone-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {order.depositResolutions && order.depositResolutions.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-stone-100">
+                    <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3">Resolution History</h3>
+                    <ul className="space-y-2">
+                      {order.depositResolutions.map((res: any) => (
+                        <li key={res.id} className="flex justify-between items-center text-sm p-3 bg-stone-50 rounded border border-stone-100">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded uppercase ${res.type === 'REFUND' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {res.type}
+                              </span>
+                              <span className="font-semibold text-stone-800">${res.amount.toFixed(2)}</span>
+                            </div>
+                            {res.reason && <p className="text-xs text-stone-500">{res.reason}</p>}
+                          </div>
+                          <div className="text-xs text-stone-400">
+                            {new Date(res.processedAt).toLocaleString()}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Email Logs (1 column) */}
-        <div className="bg-white rounded-lg shadow-sm border border-stone-200 overflow-hidden flex flex-col h-full">
+        <div className="bg-white rounded shadow-sm border border-stone-200 overflow-hidden flex flex-col h-full">
           <div className="p-4 border-b border-stone-100 bg-[#FDFCFB]">
             <h2 className="font-bold text-[var(--color-brand-charcoal)]">Email History</h2>
           </div>
@@ -450,5 +666,6 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
 
       </div>
     </div>
+    </>
   );
 }

@@ -16,6 +16,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       driver: true,
       emailLogs: {
         orderBy: { sentAt: 'desc' }
+      },
+      depositResolutions: {
+        orderBy: { processedAt: 'desc' }
       }
     }
   });
@@ -45,10 +48,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     hireTotal: Number(order.hireTotal),
     buyTotal: Number(order.buyTotal),
     depositTotal: Number(order.depositTotal),
+    depositRefunded: Number(order.depositRefunded || 0),
+    depositForfeited: Number(order.depositForfeited || 0),
     deliveryFee: Number(order.deliveryFee),
     discountAmount: Number(order.discountAmount),
     grandTotal: Number(order.grandTotal),
     amountPaid: Number(order.amountPaid),
+    depositResolutions: order.depositResolutions.map((dr: any) => ({
+      ...dr,
+      amount: Number(dr.amount)
+    })),
     items: order.items.map(item => ({
       ...item,
       price: Number(item.price),

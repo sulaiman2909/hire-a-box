@@ -1,11 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertCircle, Calendar, Clock, DollarSign, Package, ShieldAlert, Truck, TrendingUp, PackageSearch } from 'lucide-react';
 
 export default function AdminDashboardClient({ data }: { data: any }) {
+  const [pipelineTab, setPipelineTab] = useState<'HIRE' | 'BUY'>('HIRE');
+  const statusData = pipelineTab === 'HIRE' ? data.statusCountsHire : data.statusCountsBuy;
+
   return (
     <div className="space-y-6">
       
@@ -20,7 +23,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
       {/* Priority Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data.unallocatedCount > 0 ? (
-          <Link href="/admin/orders?status=UNALLOCATED" className="block p-4 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition-colors group">
+          <Link href="/admin/orders?status=UNALLOCATED" className="block p-4 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition-colors group">
             <div className="flex items-center gap-3 text-red-700">
               <ShieldAlert size={24} className="group-hover:scale-110 transition-transform" />
               <div>
@@ -30,7 +33,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
             </div>
           </Link>
         ) : (
-          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+          <div className="p-4 rounded bg-green-50 border border-green-200">
             <div className="flex items-center gap-3 text-green-700">
               <AlertCircle size={24} />
               <div>
@@ -41,7 +44,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
           </div>
         )}
 
-        <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+        <div className="p-4 rounded bg-orange-50 border border-orange-200">
           <div className="flex items-center gap-3 text-orange-700">
             <Clock size={24} />
             <div>
@@ -55,7 +58,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
       {/* Financials & Liabilities */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
         {/* Total Revenue (Today) */}
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+        <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
           <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><TrendingUp size={14} /> Revenue (Today)</div>
           <div className="text-2xl font-bold text-[var(--color-brand-charcoal)] mb-3">
             ${(data.revenueToday.hire + data.revenueToday.sale).toFixed(2)}
@@ -67,7 +70,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
         </div>
 
         {/* Total Revenue (This Month) */}
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+        <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
           <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><TrendingUp size={14} /> Revenue (MTD)</div>
           <div className="text-2xl font-bold text-[var(--color-brand-charcoal)] mb-3">
             ${(data.revenueMonth.hire + data.revenueMonth.sale).toFixed(2)}
@@ -79,7 +82,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
         </div>
 
         {/* Deposit Liability */}
-        <div className="bg-blue-50 p-5 rounded-lg shadow-sm border border-blue-100">
+        <div className="bg-blue-50 p-5 rounded shadow-sm border border-blue-100">
           <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-1.5"><DollarSign size={14} /> Deposit Liability</div>
           <div className="text-2xl font-bold text-blue-800 mb-3">
             ${data.depositLiability.toFixed(2)}
@@ -90,7 +93,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
         </div>
 
         {/* Outstanding Receivables */}
-        <div className={`p-5 rounded-lg shadow-sm border ${data.outstandingTotal > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-stone-200'}`}>
+        <div className={`p-5 rounded shadow-sm border ${data.outstandingTotal > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-stone-200'}`}>
           <div className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${data.outstandingTotal > 0 ? 'text-orange-600' : 'text-stone-400'}`}><DollarSign size={14} /> Outstanding</div>
           <div className={`text-2xl font-bold mb-3 ${data.outstandingTotal > 0 ? 'text-orange-800' : 'text-[var(--color-brand-charcoal)]'}`}>
             ${data.outstandingTotal.toFixed(2)}
@@ -104,7 +107,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Trend Visual */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+        <div className="lg:col-span-2 bg-white p-5 rounded shadow-sm border border-stone-200">
           <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-6">14-Day Order Trend</h2>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -130,29 +133,37 @@ export default function AdminDashboardClient({ data }: { data: any }) {
 
         {/* Dispatch & Order Status */}
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
-            <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-4 flex items-center gap-1.5"><PackageSearch size={14} /> Pipeline Status</h2>
+          <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5"><PackageSearch size={14} /> Pipeline Status</h2>
+              <div className="flex bg-stone-100 p-0.5 rounded text-[10px] font-bold uppercase">
+                <button 
+                  onClick={() => setPipelineTab('HIRE')} 
+                  className={`px-2 py-1 rounded transition-colors ${pipelineTab === 'HIRE' ? 'bg-white shadow-sm text-[var(--color-brand-charcoal)]' : 'text-stone-500 hover:text-stone-700'}`}
+                >
+                  Hire
+                </button>
+                <button 
+                  onClick={() => setPipelineTab('BUY')} 
+                  className={`px-2 py-1 rounded transition-colors ${pipelineTab === 'BUY' ? 'bg-white shadow-sm text-[var(--color-brand-charcoal)]' : 'text-stone-500 hover:text-stone-700'}`}
+                >
+                  Buy
+                </button>
+              </div>
+            </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-stone-600 font-medium">Pending</span>
-                <span className="font-bold text-[var(--color-brand-charcoal)]">{data.statusCounts.pending}</span>
+                <span className="font-bold text-[var(--color-brand-charcoal)]">{statusData?.pending || 0}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-stone-600 font-medium">Allocated</span>
-                <span className="font-bold text-[var(--color-brand-charcoal)]">{data.statusCounts.allocated}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-green-600 font-medium">Delivered</span>
-                <span className="font-bold text-[var(--color-brand-charcoal)]">{data.statusCounts.delivered}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm pt-2 border-t border-stone-100">
-                <span className="text-stone-500 font-medium">Collected</span>
-                <span className="font-bold text-stone-600">{data.statusCounts.collected}</span>
+                <span className="font-bold text-[var(--color-brand-charcoal)]">{statusData?.allocated || 0}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-lg shadow-sm border border-stone-200">
+          <div className="bg-white p-5 rounded shadow-sm border border-stone-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1.5"><Truck size={14} /> Dispatch Load</h2>
             </div>
