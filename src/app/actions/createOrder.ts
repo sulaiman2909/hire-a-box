@@ -111,6 +111,14 @@ export async function createOrder(params: CreateOrderParams) {
       );
     }
 
+    if (allocatedDriverId === 'UNALLOCATED') {
+      if (mappingRecord && mappingRecord.driver) {
+        throw new Error(`Driver ${mappingRecord.driver.name} is already booked for this date+slot and there's no other driver in this city — choose another slot/date, or reassign the existing booking first.`);
+      } else {
+        throw new Error('This delivery postcode is not within our serviceable areas. Cannot allocate a driver.');
+      }
+    }
+
     // 2. Create Order
     const order = await tx.order.create({
       data: {
@@ -144,6 +152,13 @@ export async function createOrder(params: CreateOrderParams) {
             isUsed: item.isUsed
           }))
         }
+      },
+      include: {
+        items: {
+          include: {
+            product: true
+          }
+        }
       }
     });
 
@@ -159,19 +174,19 @@ export async function createOrder(params: CreateOrderParams) {
       });
     }
 
-    // 4. Create Email Logs
-    await tx.emailLog.create({
-      data: {
-        orderId: order.id,
-        toEmail: params.customerDetails.email,
-        templateType: 'CLIENT_CONFIRMATION',
-        status: 'SUCCESS'
-      }
-    });
-
+    // 4. Create Email Logs (ONLY if allocated)
     let allocatedDriverEmail: string | undefined;
 
     if (allocatedDriverId !== 'UNALLOCATED') {
+      await tx.emailLog.create({
+        data: {
+          orderId: order.id,
+          toEmail: params.customerDetails.email,
+          templateType: 'CLIENT_CONFIRMATION',
+          status: 'SUCCESS'
+        }
+      });
+
       const driver = await tx.driver.findUnique({ where: { id: allocatedDriverId } });
       if (driver) {
         allocatedDriverEmail = driver.email;
@@ -196,9 +211,9 @@ export async function createOrder(params: CreateOrderParams) {
   const cookieStore = await cookies();
   cookieStore.delete('hab_cart_state');
 
-  // Fire off real emails asynchronously
-  sendCustomerConfirmationEmail(orderId.order, params.customerDetails.email).catch(console.error);
+  // Fire off real emails asynchronously ONLY if allocated
   if (orderId.allocatedDriverEmail) {
+    sendCustomerConfirmationEmail(orderId.order, params.customerDetails.email).catch(console.error);
     sendDriverNotificationEmail(orderId.order, orderId.allocatedDriverEmail).catch(console.error);
   }
 

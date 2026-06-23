@@ -130,13 +130,34 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
     }
   };
 
+  const [step1Error, setStep1Error] = useState('');
+
   const validateStep1 = () => {
-    return formData.firstName && formData.lastName && formData.email && formData.mobile && formData.street && formData.deliveryDate && formData.deliverySlot;
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim() || !formData.mobile.trim() || !formData.street.trim() || !formData.deliveryDate || !formData.deliverySlot) {
+      return 'Please fill in all required fields marked with an asterisk (*).';
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return 'Please enter a valid email address.';
+    }
+    const mobileDigits = formData.mobile.replace(/\D/g, '');
+    if (mobileDigits.length < 8) {
+      return 'Please enter a valid mobile number.';
+    }
+    return '';
   };
 
   const handleNext = () => {
-    if (step === 1 && validateStep1()) setStep(2);
-    else if (step === 2) setStep(3);
+    if (step === 1) {
+      const err = validateStep1();
+      if (!err) {
+        setStep1Error('');
+        setStep(2);
+      } else {
+        setStep1Error(err);
+      }
+    } else if (step === 2) {
+      setStep(3);
+    }
   };
 
   const handleBack = () => {
@@ -287,7 +308,7 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
                   <DatePicker 
                     selected={selectedDateObj}
                     onChange={handleDateChange}
-                    minDate={new Date()}
+                    minDate={new Date(new Date().setDate(new Date().getDate() + 1))}
                     excludeDates={disabledDates}
                     placeholderText={loadingDates ? "Checking availability..." : "Select delivery date *"}
                     dateFormat="dd/MM/yyyy"
@@ -309,8 +330,14 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
               </div>
             </div>
 
-            <div className="flex justify-end pt-6">
-              <button onClick={handleNext} disabled={!validateStep1()} className="w-full sm:w-auto px-10 py-4 bg-[var(--color-brand-orange)] text-white text-[15px] font-semibold rounded-md hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-sm">
+            {step1Error && (
+              <div className="text-red-500 text-sm font-medium text-right bg-red-50 p-3 rounded-md border border-red-100">
+                {step1Error}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button onClick={handleNext} className="w-full sm:w-auto px-10 py-4 bg-[var(--color-brand-orange)] text-white text-[15px] font-semibold rounded-md hover:bg-orange-700 transition-colors shadow-sm">
                 Continue to Review
               </button>
             </div>
