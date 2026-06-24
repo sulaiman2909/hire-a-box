@@ -52,9 +52,11 @@ This is the core of the automated routing engine.
 *   *Result:* Click **Edit Amount Paid**, type in the total (simulating a cleared bank transfer). The balance will mathematically recalculate to $0.00.
 
 ### 2.6 Forcing an Order to 'Unallocated'
-An order becomes 'Unallocated' when human intervention is required (e.g., a race condition during checkout, or a staff error).
-*   **How to test:** Open an existing, fully-allocated order. Use the "Change Delivery Address" action. Change the postcode to `9999` (unserviceable).
-*   *Result:* The system saves the new address but immediately strips the driver from the order, flashing a red **UNALLOCATED** badge to alert staff to resolve the conflict.
+An order becomes 'Unallocated' when human intervention is required (e.g., if an admin accidentally double-books a driver or reroutes an order to a region that has no capacity).
+*   **How to test (Cross-City Collision):** Place an order for **Perth** (postcode `6000`) and another for **Melbourne** (postcode `3000`) for the *exact same date and time slot*.
+*   Open the Melbourne order in the Admin Dashboard.
+*   Use the "Change Delivery Address" action and change the postcode to the Perth one (`6000`). 
+*   *Result:* Because Perth only has *one* driver, and they are already booked for that slot, the failover logic returns 0 available drivers. The system saves the address change, but immediately strips the driver from the order and flashes a red **UNALLOCATED** badge to alert staff to manually resolve the conflict.
 
 ### 2.7 Deposit Forfeiture (Damaged Goods)
 *   **How to test:** Open a Hire order. Navigate to the "Deposits" section. Simulate a damaged box by entering `$20` into the Forfeit action.
