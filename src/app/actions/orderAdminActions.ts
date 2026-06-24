@@ -285,22 +285,23 @@ export async function resolveDeposit(orderId: string, amount: number, type: 'REF
       throw new Error(`Cannot resolve $${amount.toFixed(2)}. Only $${remaining.toFixed(2)} deposit remaining.`);
     }
 
-    if (type === 'REFUND') {
+    if (type === 'REFUND' || type === 'FORFEIT') {
       // --- MOCK eWAY PAYMENT GATEWAY INTEGRATION ---
-      // In production, we would use the eWAY SDK here: eway.refund(transactionId, amount)
-      console.log(`[eWay Mock API] Initiating refund of $${amount.toFixed(2)} for Order ${orderId}...`);
+      // In production, we would use the eWAY SDK here: eway.refund(transactionId, amount) or eway.capturePayment(transactionId, amount)
+      const actionName = type === 'REFUND' ? 'refund' : 'capture';
+      console.log(`[eWay Mock API] Initiating ${actionName} of $${amount.toFixed(2)} for Order ${orderId}...`);
       
       // Simulate 1.5 seconds of network latency to the payment gateway
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Simulate a 95% success rate for the refund processing
+      // Simulate a 95% success rate for the processing
       const ewayResponseMock = Math.random() > 0.05 ? { status: 200, message: 'Approved' } : { status: 400, message: 'Card Expired' };
       
       if (ewayResponseMock.status !== 200) {
-        throw new Error(`Payment Gateway Error: ${ewayResponseMock.message}. Refund aborted.`);
+        throw new Error(`Payment Gateway Error: ${ewayResponseMock.message}. ${type === 'REFUND' ? 'Refund' : 'Capture'} aborted.`);
       }
       
-      console.log(`[eWay Mock API] Refund successful! Proceeding with database update.`);
+      console.log(`[eWay Mock API] ${actionName} successful! Proceeding with database update.`);
       // ---------------------------------------------
     }
 
@@ -323,6 +324,6 @@ export async function resolveDeposit(orderId: string, amount: number, type: 'REF
     
     return type === 'REFUND' 
       ? `[eWay API Mock] Successfully processed refund of $${amount.toFixed(2)} to customer card.`
-      : '';
+      : `[eWay API Mock] Successfully captured $${amount.toFixed(2)} from customer pre-auth to business revenue.`;
   }).then((msg) => ({ success: true, message: msg })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
