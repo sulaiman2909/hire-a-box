@@ -320,5 +320,9 @@ export async function resolveDeposit(orderId: string, amount: number, type: 'REF
         reason
       }
     });
-  }).then(() => ({ success: true })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
+    
+    return type === 'REFUND' 
+      ? `[eWay API Mock] Successfully processed refund of $${amount.toFixed(2)} to customer card.`
+      : '';
+  }).then((msg) => ({ success: true, message: msg })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }

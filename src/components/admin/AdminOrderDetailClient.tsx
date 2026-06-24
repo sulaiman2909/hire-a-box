@@ -66,6 +66,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
           alert((res as any).error);
           return;
         }
+        
+        if (res && 'message' in res && (res as any).message) {
+          alert((res as any).message);
+        }
+        
         setIsResolvingDeposit(false);
         setResolveReason('');
         router.refresh();
