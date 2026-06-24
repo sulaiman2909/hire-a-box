@@ -208,7 +208,19 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
     if (!validateCard()) return;
     
     setIsProcessing(true);
+    setPaymentError('');
     
+    // MOCK GATEWAY: Simulate network latency (1.5s to 2.5s)
+    const latency = Math.floor(Math.random() * 1000) + 1500;
+    await new Promise(resolve => setTimeout(resolve, latency));
+
+    // MOCK GATEWAY: 5% random network failure simulation
+    if (Math.random() < 0.05) {
+      setPaymentError('Gateway timeout. Please try your payment again.');
+      setIsProcessing(false);
+      return;
+    }
+
     // MOCK GATEWAY: 4111 1111 1111 1111 is success
     const num = paymentData.cardNumber.replace(/\s+/g, '');
     if (num !== '4111111111111111') {
