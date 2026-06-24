@@ -17,12 +17,16 @@ export default async function AdminDashboardPage() {
 
   const fourteenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
 
-  // Optimize: Run exactly 5 parallel queries to avoid pool exhaustion but get lightning fast responses
+  // Optimize: Run exactly 6 parallel queries to avoid pool exhaustion but get lightning fast responses
+  // We need data back to 14 days ago or the start of the month, whichever is earlier
+  const earliestRequiredDate = thisMonthStart < fourteenDaysAgo ? thisMonthStart : fourteenDaysAgo;
+
   const [
     statusCounts,
     depositLiabilityAggr,
     actionNeededCount,
-    allTimeOrders,
+    allTimeFinancials,
+    recentOrders,
     deliveriesThisWeek
   ] = await Promise.all([
     prisma.order.groupBy({
@@ -42,9 +46,13 @@ export default async function AdminDashboardPage() {
         status: { in: ['PENDING', 'UNALLOCATED', 'ALLOCATED'] }
       } 
     }),
-    prisma.order.findMany({
+    prisma.order.aggregate({
       where: { status: { not: 'CANCELLED' } },
-      select: { createdAt: true, grandTotal: true, amountPaid: true, hireTotal: true, buyTotal: true, depositForfeited: true, type: true }
+      _sum: { grandTotal: true, amountPaid: true }
+    }),
+    prisma.order.findMany({
+      where: { status: { not: 'CANCELLED' }, createdAt: { gte: earliestRequiredDate } },
+      select: { createdAt: true, grandTotal: true, hireTotal: true, buyTotal: true, depositForfeited: true, type: true }
     }),
     prisma.order.findMany({
       where: { deliveryDate: { gte: todayStart, lt: new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000) }, driverId: { not: null }, status: { notIn: ['CANCELLED', 'COLLECTED'] } },
@@ -65,16 +73,15 @@ export default async function AdminDashboardPage() {
   const allocatedCountBuy = statusCounts.find(s => s.status === 'ALLOCATED' && s.type === 'BUY')?._count || 0;
   const deliveredCountBuy = statusCounts.find(s => s.status === 'DELIVERED' && s.type === 'BUY')?._count || 0;
 
-  let outstandingTotal = 0;
   let todayHire = 0, todayBuy = 0, todayForfeited = 0;
   let weekHire = 0, weekBuy = 0, weekForfeited = 0;
   let monthHire = 0, monthBuy = 0, monthForfeited = 0;
-  const recentOrders = [];
+  const recentOrdersList = [];
 
-  for (const o of allTimeOrders) {
-    const diff = Number(o.grandTotal) - Number(o.amountPaid);
-    if (diff > 0) outstandingTotal += diff;
+  // outstandingTotal is now exactly computed from the aggregate query
+  const outstandingTotal = Number(allTimeFinancials._sum?.grandTotal || 0) - Number(allTimeFinancials._sum?.amountPaid || 0);
 
+  for (const o of recentOrders) {
     if (o.createdAt >= todayStart) {
       todayHire += Number(o.hireTotal);
       todayBuy += Number(o.buyTotal);
@@ -91,11 +98,11 @@ export default async function AdminDashboardPage() {
       monthForfeited += Number(o.depositForfeited);
     }
     if (o.createdAt >= fourteenDaysAgo) {
-      recentOrders.push(o);
+      recentOrdersList.push(o);
     }
   }
 
-  recentOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  recentOrdersList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const todayAggr = { _sum: { hireTotal: todayHire, buyTotal: todayBuy, depositForfeited: todayForfeited } };
   const weekAggr = { _sum: { hireTotal: weekHire, buyTotal: weekBuy, depositForfeited: weekForfeited } };
@@ -130,7 +137,7 @@ export default async function AdminDashboardPage() {
     trendsMap.set(dateStr, { date: dateStr, revenue: 0, orders: 0 });
   }
 
-  recentOrders.forEach(o => {
+  recentOrdersList.forEach(o => {
     const dateStr = o.createdAt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
     if (trendsMap.has(dateStr)) {
       const entry = trendsMap.get(dateStr)!;
