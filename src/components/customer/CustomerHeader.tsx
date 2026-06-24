@@ -49,7 +49,7 @@ export default function CustomerHeader() {
 
           {/* Right: CTA & Mobile Menu */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <div className="flex items-stretch shadow-sm hover:shadow-md transition-shadow rounded-md">
+            <div className="hidden sm:flex items-stretch shadow-sm hover:shadow-md transition-shadow rounded-md">
               <Link 
                 href="/hire"
                 className="bg-[var(--color-brand-orange)] text-white hover:bg-[#c94d0a] transition-colors py-2 px-4 sm:py-2.5 sm:px-6 text-[13px] sm:text-[14px] font-poppins font-semibold uppercase tracking-wide flex items-center justify-center rounded-l-md relative"
