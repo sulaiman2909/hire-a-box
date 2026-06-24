@@ -151,7 +151,7 @@ The Ops Backend is protected by NextAuth middleware.
 
 ## 11. Key Features / How it works
 - **Hire vs Buy:** Customers can choose to hire boxes (paying a hire fee + refundable deposit) or buy new/used boxes outright. The cart automatically separates and calculates deposits.
-- **Driver Auto-Allocation:** Upon checkout, the system reads the customer's delivery postcode and assigns the primary driver for that zone. If the primary driver is fully booked for the chosen time slot, it automatically fails over to an available backup driver in the same city (e.g., Sydney). If no drivers are available, the order is flagged as `UNALLOCATED` for admin review.
+- **Driver Auto-Allocation:** Upon checkout, the system reads the customer's delivery postcode and assigns the primary driver for that zone. If the primary driver is fully booked for the chosen time slot, it automatically fails over to an available backup driver in the same city (e.g., Sydney). If no drivers are available at all, the system safely blocks the checkout to prevent double-booking. (Orders only become `UNALLOCATED` if an admin later forces a cross-city re-assignment or books a manual order without a driver).
 - **Slot Availability:** Real-time checking of 2-hour delivery windows.
 - **Transactional Emails:** Two emails are fired instantly on checkout via Resend: a branded HTML receipt to the customer, and a job notification email to the assigned driver containing the delivery address, time slot, and itemized order summary.
 - **Ops Backend:** Administrators can view order statuses, manually edit delivery addresses or driver assignments (with strict city-boundary validation), resend emails, manage a unified delivery calendar, and process deposit refunds/forfeits.
