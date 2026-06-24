@@ -403,7 +403,7 @@ flowchart LR
         end
         
         subgraph Analytics ["Business Analytics"]
-            UC16([Monitor Unserviceable Postcode Logs])
+            UC16([Record Unserviceable Postcode Logs])
         end
     end
     
