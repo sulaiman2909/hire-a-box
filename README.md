@@ -369,7 +369,7 @@ flowchart LR
     subgraph Storefront ["Customer Storefront"]
         direction TB
         UC1([Browse Products & Packages])
-        UC1a([Compare Hire vs Buy Pricing])
+        UC1_1([Compare Hire vs Buy Pricing])
         UC2([Manage Cart & Select Delivery])
         UC3([Secure Checkout & Payment])
         UC4([Receive Auto-Confirmation Email])
@@ -381,8 +381,8 @@ flowchart LR
         subgraph OrderManagement ["Order Management"]
             direction TB
             UC5([View & Search All Orders])
-            UC5a([Create Manual Orders])
-            UC6([Update Order Status])
+            UC_NEW([Create Manual Order])
+            UC6([Change Order Status])
             UC7([Edit Delivery Address])
             UC8([Delete Invalid Orders])
         end
@@ -398,8 +398,8 @@ flowchart LR
             direction TB
             UC12([Process Deposit Refunds via Gateway])
             UC13([Capture Deposit Forfeits to Revenue])
-            UC14([Mark Manual Payments as Paid])
-            UC15([Resend Customer/Driver Emails])
+            UC14([Mark Payments as Paid / Update Amount])
+            UC15([Resend Customer & Driver Emails])
         end
         
         subgraph Analytics ["Business Analytics"]
@@ -408,13 +408,13 @@ flowchart LR
     end
     
     Customer --> UC1
-    Customer --> UC1a
+    Customer --> UC1_1
     Customer --> UC2
     Customer --> UC3
     Customer --> UC4
     
+    Admin --> UC_NEW
     Admin --> UC5
-    Admin --> UC5a
     Admin --> UC6
     Admin --> UC7
     Admin --> UC8
@@ -430,3 +430,4 @@ flowchart LR
     
     Admin --> UC16
 ```
+
