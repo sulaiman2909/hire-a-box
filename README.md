@@ -366,26 +366,67 @@ flowchart LR
     Customer((Customer))
     Admin((System Admin))
     
-    subgraph Storefront
-        UC1([Browse Packages & Add to Cart])
-        UC2([Checkout & Select Delivery Slot])
-        UC3([Receive Email Confirmation])
+    subgraph Storefront ["Customer Storefront"]
+        direction TB
+        UC1([Browse Products & Packages])
+        UC1a([Compare Hire vs Buy Pricing])
+        UC2([Manage Cart & Select Delivery])
+        UC3([Secure Checkout & Payment])
+        UC4([Receive Auto-Confirmation Email])
     end
     
     subgraph OpsDashboard ["Ops Dashboard (Backend)"]
-        UC4([View All Orders & Calendar])
-        UC5([Manual Driver Re-allocation])
-        UC6([Process Deposit Refunds / Forfeits])
-        UC7([Manage Order Status])
+        direction TB
+        
+        subgraph OrderManagement ["Order Management"]
+            direction TB
+            UC5([View & Search All Orders])
+            UC5a([Create Manual Orders])
+            UC6([Update Order Status])
+            UC7([Edit Delivery Address])
+            UC8([Delete Invalid Orders])
+        end
+        
+        subgraph Logistics ["Driver Logistics"]
+            direction TB
+            UC9([View Master Driver Calendar])
+            UC10([Manual Driver Re-allocation])
+            UC11([Modify Delivery Dates & Slots])
+        end
+        
+        subgraph Financials ["Financials & Comms"]
+            direction TB
+            UC12([Process Deposit Refunds via Gateway])
+            UC13([Capture Deposit Forfeits to Revenue])
+            UC14([Mark Manual Payments as Paid])
+            UC15([Resend Customer/Driver Emails])
+        end
+        
+        subgraph Analytics ["Business Analytics"]
+            UC16([Monitor Unserviceable Postcode Logs])
+        end
     end
     
     Customer --> UC1
+    Customer --> UC1a
     Customer --> UC2
     Customer --> UC3
+    Customer --> UC4
     
-    Admin --> UC4
     Admin --> UC5
+    Admin --> UC5a
     Admin --> UC6
     Admin --> UC7
+    Admin --> UC8
+    
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC11
+    
+    Admin --> UC12
+    Admin --> UC13
+    Admin --> UC14
+    Admin --> UC15
+    
+    Admin --> UC16
 ```
-
