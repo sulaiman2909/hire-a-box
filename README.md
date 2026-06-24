@@ -166,3 +166,226 @@ This application is fully optimized for **Vercel**.
 4. Deploy.
 
 *Note on Prisma:* Because Next.js serverless functions spin up and down rapidly, a pooled connection (`DATABASE_URL` with `?pgbouncer=true`) is required in production to prevent connection exhaustion on the Neon PostgreSQL database.
+
+## 13. System Diagrams
+
+### System Architecture
+```mermaid
+flowchart TD
+    %% Define Styles
+    classDef client fill:#f0f9ff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    classDef server fill:#fdf4ff,stroke:#c026d3,stroke-width:2px,color:#0f172a
+    classDef domain fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#0f172a
+    classDef database fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#0f172a
+    classDef external fill:#f8fafc,stroke:#94a3b8,stroke-width:2px,color:#0f172a,stroke-dasharray: 5 5
+
+    %% Actors / External
+    User((Customer / Admin)):::client
+    Resend[Resend API\nEmail Delivery]:::external
+    eWay[eWay API\nPayment Gateway Mock]:::external
+
+    %% Client Layer (Browser)
+    subgraph ClientLayer ["Client Layer (Browser)"]
+        direction TB
+        CC[React Client Components\nInteractive UI, Forms, Cart State]:::client
+    end
+
+    %% Next.js Server Layer (Node.js Edge/Runtime)
+    subgraph ServerLayer ["Next.js App Router (Server)"]
+        direction TB
+        SC[React Server Components\nInitial Data Fetching, SSR]:::server
+        SA[Server Actions\nMutations, API endpoints]:::server
+        Auth[Auth.js\nSession Management]:::server
+    end
+
+    %% Pure Domain Logic (Business Rules)
+    subgraph DomainLayer ["Domain Layer (src/lib/domain)"]
+        direction LR
+        Pricing[pricing.ts\nTotals, Promos]:::domain
+        Alloc[allocation.ts\nDriver Auto-assignment]:::domain
+        Deposits[deposits.ts\nRefunds, Forfeits]:::domain
+    end
+
+    %% Database Layer
+    subgraph DBLayer ["Data Layer"]
+        Prisma[Prisma ORM\nType-safe Client]:::database
+        Neon[(Neon Postgres DB)]:::database
+    end
+
+    %% Connections
+    User -- Interacts with --> CC
+    User -- Initial Page Load --> SC
+    
+    CC -- Calls async mutations --> SA
+    SC -- Renders initial state --> CC
+    
+    SA -- Enforces Auth --> Auth
+    
+    %% Domain integration
+    SA -- Computes Rules --> Pricing
+    SA -- Computes Rules --> Alloc
+    SA -- Computes Rules --> Deposits
+    
+    %% DB Integration
+    SC -- Reads Data --> Prisma
+    SA -- Writes Data --> Prisma
+    Prisma -- SQL Queries --> Neon
+    
+    %% External Integrations
+    SA -- Triggers Emails --> Resend
+    SA -- Simulates Requests --> eWay
+```
+
+### Entity-Relationship (ER) Diagram
+```mermaid
+erDiagram
+    AdminUser {
+        String id PK
+        String email UK
+        String passwordHash
+        String name
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Product {
+        String id PK
+        String name
+        String description
+        ProductRole role
+        Boolean availableForHire
+        Boolean availableForBuy
+        Decimal hirePrice
+        Decimal buyPriceNew
+        Decimal buyPriceUsed
+        Decimal depositPerUnit
+        String dimensions
+        String spec
+        Boolean isActive
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PackageItem {
+        String id PK
+        String packageId FK
+        String productId FK
+        Int quantity
+    }
+    Order {
+        String id PK
+        String orderNumber UK
+        OrderType type
+        OrderStatus status
+        OrderSource source
+        String customerName
+        String customerEmail
+        String customerPhone
+        String deliveryAddress
+        String deliverySuburb
+        String deliveryPostcode
+        String pickupPostcode
+        DateTime deliveryDate
+        String deliverySlot
+        Decimal hireTotal
+        Decimal buyTotal
+        Decimal depositTotal
+        Decimal depositRefunded
+        Decimal depositForfeited
+        Decimal deliveryFee
+        Decimal discountAmount
+        Decimal grandTotal
+        Decimal amountPaid
+        String driverId FK
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    OrderItem {
+        String id PK
+        String orderId FK
+        String productId FK
+        Int quantity
+        Decimal price
+        Decimal depositPerUnit
+        Boolean isUsed
+    }
+    Driver {
+        String id PK
+        String name
+        String email UK
+        String phone
+        String city
+        Boolean isActive
+    }
+    DriverAvailability {
+        String id PK
+        String driverId FK
+        DateTime date
+        String timeSlot
+        String status
+    }
+    PostcodeMapping {
+        String id PK
+        String postcode UK
+        String driverId FK
+    }
+    EmailLog {
+        String id PK
+        String orderId FK
+        String toEmail
+        String templateType
+        String status
+        DateTime sentAt
+    }
+    PostcodeSearchLog {
+        String id PK
+        String postcode
+        String context
+        DateTime createdAt
+    }
+    DepositResolution {
+        String id PK
+        String orderId FK
+        Decimal amount
+        DepositResolutionType type
+        String reason
+        DateTime processedAt
+    }
+    Product ||--o{ PackageItem : "packageContents"
+    Product ||--o{ PackageItem : "includedIn"
+    Order ||--o{ OrderItem : "items"
+    Product ||--o{ OrderItem : "orderItems"
+    Driver ||--o{ Order : "orders"
+    Driver ||--o{ DriverAvailability : "availabilities"
+    Driver ||--o{ PostcodeMapping : "postcodes"
+    Order ||--o{ EmailLog : "emailLogs"
+    Order ||--o{ DepositResolution : "depositResolutions"
+```
+
+### Use Case Diagram
+```mermaid
+flowchart LR
+    Customer((Customer))
+    Admin((System Admin))
+    
+    subgraph Storefront
+        UC1([Browse Packages & Add to Cart])
+        UC2([Checkout & Select Delivery Slot])
+        UC3([Receive Email Confirmation])
+    end
+    
+    subgraph OpsDashboard ["Ops Dashboard (Backend)"]
+        UC4([View All Orders & Calendar])
+        UC5([Manual Driver Re-allocation])
+        UC6([Process Deposit Refunds / Forfeits])
+        UC7([Manage Order Status])
+    end
+    
+    Customer --> UC1
+    Customer --> UC2
+    Customer --> UC3
+    
+    Admin --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+```
+
