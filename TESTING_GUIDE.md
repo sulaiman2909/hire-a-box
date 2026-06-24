@@ -40,11 +40,11 @@ This is the core of the automated routing engine.
 *   **How to test:** Look at the top-level widgets. Place a new Hire order on the storefront. Refresh the dashboard. Notice how the "Hire Fee" correctly routes to total revenue, but the "Deposit" strictly routes to the outstanding liability widget.
 
 ### 2.3 Calendar Blocking (Driver Sick Leave)
-*   **How to test:** Navigate to the **Calendar**. Select a driver (e.g., Driver 3 in Melbourne). Click on tomorrow's `14:00-16:00` slot and click **Block Slot**. 
+*   **How to test:** Navigate to the **Calendar**. Select a driver (e.g., Driver 3 in Melbourne). Click on tomorrow's `14:00-16:00` slot and click on the slot to **Block** it. 
 *   *Result:* The slot immediately turns grey. If a customer in Melbourne tries to check out, this slot will no longer exist.
 
 ### 2.4 Creating Manual Orders (Bypassing Capacity)
-*   **How to test:** Go to **Orders -> New Manual Order**. Book an order for a time slot that is already fully booked. 
+*   **How to test:** Go to **Orders -> New Order**. Book an order for a time slot that is already fully booked. 
 *   *Result:* Manual admin orders intentionally bypass the strict web capacity limits, allowing staff to force a booking through for VIP clients.
 
 ### 2.5 Marking Manual Orders as Paid
