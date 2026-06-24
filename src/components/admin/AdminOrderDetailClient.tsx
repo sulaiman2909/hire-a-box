@@ -61,7 +61,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
   const handleResolveDeposit = () => {
     startTransition(async () => {
       try {
-        await resolveDeposit(order.id, resolveAmount, resolveType, resolveReason);
+        const res = await resolveDeposit(order.id, resolveAmount, resolveType, resolveReason);
+        if (res && res.error) {
+          alert(res.error);
+          return;
+        }
         setIsResolvingDeposit(false);
         setResolveReason('');
         router.refresh();
@@ -90,6 +94,10 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
           deliveryPostcode: editAddress.deliveryPostcode,
           pickupPostcode: order.type === 'HIRE' ? editAddress.pickupPostcode : undefined,
         });
+        if (res.error) {
+          alert(res.error);
+          return;
+        }
         
         if (res.warning) {
           alert(res.warning);
@@ -107,7 +115,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
     setAllocationError('');
     startTransition(async () => {
       try {
-        await updateOrderAllocation(order.id, editDriverId || null, editDate, editSlot);
+        const res = await updateOrderAllocation(order.id, editDriverId || null, editDate, editSlot);
+        if (res && res.error) {
+          setAllocationError(res.error);
+          return;
+        }
         setIsEditingAllocation(false);
         router.refresh();
       } catch (err: any) {
@@ -119,7 +131,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
   const handleSavePayment = () => {
     startTransition(async () => {
       try {
-        await updateOrderPayment(order.id, editAmountPaid);
+        const res = await updateOrderPayment(order.id, editAmountPaid);
+        if (res && res.error) {
+          alert(res.error);
+          return;
+        }
         setIsEditingPayment(false);
         router.refresh();
       } catch (err: any) {
@@ -137,8 +153,12 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
     if (!confirm(`Are you sure you want to resend the ${type} email?`)) return;
     startTransition(async () => {
       try {
-        await resendOrderEmail(order.id, type);
-        router.refresh();
+        const res = await resendOrderEmail(order.id, type);
+        if (res && res.error) {
+          alert(res.error);
+        } else {
+          router.refresh();
+        }
       } catch (err: any) {
         alert(err.message || 'Failed to send email.');
       }
@@ -155,7 +175,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
     
     startTransition(async () => {
       try {
-        await deleteOrder(order.id);
+        const res = await deleteOrder(order.id);
+        if (res && res.error) {
+          alert(res.error);
+          return;
+        }
         router.push('/admin'); // Redirect back to dashboard after deletion
       } catch (err: any) {
         alert(err.message || 'Failed to delete order.');
@@ -167,7 +191,11 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
     if (!confirm(`Are you sure you want to change the order status to ${newStatus}?`)) return;
     startTransition(async () => {
       try {
-        await updateOrderStatus(order.id, newStatus as any);
+        const res = await updateOrderStatus(order.id, newStatus as any);
+        if (res && res.error) {
+          alert(res.error);
+          return;
+        }
         router.refresh();
       } catch (err: any) {
         alert(err.message || 'Failed to update status.');

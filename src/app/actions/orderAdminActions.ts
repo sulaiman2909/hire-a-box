@@ -85,9 +85,7 @@ export async function updateOrderAllocation(orderId: string, driverId: string | 
         status: finalStatus
       }
     });
-
-    return { success: true };
-  });
+  }).then(() => ({ success: true })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
 
 export async function updateOrderDeliveryAddress(
@@ -179,63 +177,65 @@ export async function updateOrderDeliveryAddress(
     });
 
     return { success: true, warning: warningMsg };
-  });
+  }).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
 
 export async function updateOrderPayment(orderId: string, amountPaid: number) {
-  await prisma.order.update({
+  return await prisma.order.update({
     where: { id: orderId },
     data: { amountPaid }
-  });
-  return { success: true };
+  }).then(() => ({ success: true })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
-  await prisma.order.update({
+  return await prisma.order.update({
     where: { id: orderId },
     data: { status }
-  });
-  return { success: true };
+  }).then(() => ({ success: true })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
 
 export async function resendOrderEmail(orderId: string, type: 'CLIENT' | 'DRIVER') {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { 
-      driver: true,
-      items: {
-        include: { product: true }
-      }
-    }
-  });
-
-  if (!order) throw new Error('Order not found');
-
-  if (type === 'CLIENT') {
-    const result = await sendCustomerConfirmationEmail(order, order.customerEmail);
-    await prisma.emailLog.create({
-      data: {
-        orderId: order.id,
-        toEmail: order.customerEmail,
-        templateType: 'CLIENT_CONFIRMATION',
-        status: result ? 'SUCCESS' : 'FAILED'
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { 
+        driver: true,
+        items: {
+          include: { product: true }
+        }
       }
     });
-    return result;
-  } else if (type === 'DRIVER') {
-    if (!order.driverId || !order.driver) {
-      throw new Error('No driver allocated');
-    }
-    const result = await sendDriverNotificationEmail(order, order.driver.email);
-    await prisma.emailLog.create({
-      data: {
-        orderId: order.id,
-        toEmail: order.driver.email,
-        templateType: 'DRIVER_NOTIFICATION',
-        status: result ? 'SUCCESS' : 'FAILED'
+
+    if (!order) throw new Error('Order not found');
+
+    if (type === 'CLIENT') {
+      const result = await sendCustomerConfirmationEmail(order, order.customerEmail);
+      await prisma.emailLog.create({
+        data: {
+          orderId: order.id,
+          toEmail: order.customerEmail,
+          templateType: 'CLIENT_CONFIRMATION',
+          status: result ? 'SUCCESS' : 'FAILED'
+        }
+      });
+      return { success: result };
+    } else if (type === 'DRIVER') {
+      if (!order.driverId || !order.driver) {
+        throw new Error('No driver allocated');
       }
-    });
-    return result;
+      const result = await sendDriverNotificationEmail(order, order.driver.email);
+      await prisma.emailLog.create({
+        data: {
+          orderId: order.id,
+          toEmail: order.driver.email,
+          templateType: 'DRIVER_NOTIFICATION',
+          status: result ? 'SUCCESS' : 'FAILED'
+        }
+      });
+      return { success: result };
+    }
+  } catch (err: any) {
+    return { error: err.message || 'An unknown error occurred.' };
   }
 }
 
@@ -263,8 +263,8 @@ export async function deleteOrder(orderId: string) {
     // Finally delete the order
     await tx.order.delete({ where: { id: orderId } });
 
-    return true;
-  });
+    return { success: true };
+  }).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
 
 export async function resolveDeposit(orderId: string, amount: number, type: 'REFUND' | 'FORFEIT', reason: string = '') {
@@ -301,7 +301,5 @@ export async function resolveDeposit(orderId: string, amount: number, type: 'REF
         reason
       }
     });
-
-    return { success: true };
-  });
+  }).then(() => ({ success: true })).catch(err => ({ error: err.message || 'An unknown error occurred.' }));
 }
