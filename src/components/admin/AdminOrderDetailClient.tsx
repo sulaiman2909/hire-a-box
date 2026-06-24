@@ -614,14 +614,15 @@ export default function AdminOrderDetailClient({ order, drivers, availabilities 
                     <div className="flex gap-2">
                       <button 
                         onClick={handleResolveDeposit} 
-                        disabled={resolveAmount <= 0 || resolveAmount > remainingDeposit}
-                        className={`px-4 py-1.5 text-white font-semibold rounded text-sm transition-colors ${
+                        disabled={resolveAmount <= 0 || resolveAmount > remainingDeposit || isPending}
+                        className={`px-4 py-1.5 text-white font-semibold rounded text-sm transition-colors flex items-center gap-2 ${
                           resolveType === 'REFUND' 
                             ? 'bg-green-600 hover:bg-green-700 disabled:bg-green-400' 
                             : 'bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400'
                         }`}
                       >
-                        Confirm {resolveType === 'REFUND' ? 'Refund' : 'Forfeit'}
+                        {isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                        {isPending && resolveType === 'REFUND' ? 'Processing Gateway...' : isPending ? 'Processing...' : `Confirm ${resolveType === 'REFUND' ? 'Refund' : 'Forfeit'}`}
                       </button>
                       <button 
                         onClick={() => setIsResolvingDeposit(false)} 
