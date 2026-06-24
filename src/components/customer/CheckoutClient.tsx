@@ -348,8 +348,8 @@ export default function CheckoutClient({ initialCartState }: CheckoutClientProps
           <div className="space-y-6 max-w-3xl mx-auto">
             <h2 className="text-xl font-bold text-[var(--color-brand-charcoal)]">Review Your Order</h2>
             
-            <div className="border border-[#E6E0D4] rounded-md overflow-hidden">
-              <table className="w-full text-sm text-left">
+            <div className="border border-[#E6E0D4] rounded-md overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[500px]">
                 <thead className="bg-[#FDFCFB] border-b border-[#E6E0D4] text-[#6B6862]">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Item</th>
