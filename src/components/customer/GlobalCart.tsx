@@ -25,10 +25,10 @@ export default function GlobalCart() {
   const totals = calculateOrderTotals(orderType, items);
   const depositTotal = activeMode === 'hire' ? calculateDeposits(items) : undefined;
   
-  const subtotalBeforeDiscount = activeMode === 'hire' ? (totals.hireTotal - totals.deliveryFee) : totals.saleTotal - totals.deliveryFee;
+  const subtotalBeforeDiscount = activeMode === 'hire' ? totals.hireTotal : totals.saleTotal;
   const discountAmount = calculateDiscount(subtotalBeforeDiscount, state.promoCode);
   
-  const totalAmount = (activeMode === 'hire' ? totals.hireTotal : totals.saleTotal) - discountAmount;
+  const totalAmount = subtotalBeforeDiscount - discountAmount + totals.deliveryFee;
 
   const handleCheckout = () => {
     closeCart();
