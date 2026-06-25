@@ -123,7 +123,7 @@ export default function AdminDashboardClient({ data }: { data: any }) {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e7e5e4" />
                 <Tooltip 
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e7e5e4', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: any, name: any) => [name === 'revenue' ? `$${Number(value).toFixed(2)}` : value, name === 'revenue' ? 'Revenue' : 'Orders']}
+                  formatter={(value: any, name: any) => [name === 'revenue' ? `$${Number(value).toFixed(2)}` : value, name === 'revenue' ? 'Gross Cash Flow' : 'Orders']}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
               </AreaChart>
