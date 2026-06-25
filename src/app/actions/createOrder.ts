@@ -46,9 +46,15 @@ export async function createOrder(params: CreateOrderParams) {
   
   const grandTotal = (isHire ? totals.hireTotal : totals.saleTotal) - discountAmount + depositTotal + totals.deliveryFee;
 
-  // Generate unique order number HAB-XXXXXX
-  const randomSuffix = Math.floor(100000 + Math.random() * 900000);
-  const orderNumber = `HAB-${randomSuffix}`;
+  // Generate guaranteed unique order number HAB-XXXXXX
+  let orderNumber = '';
+  let isUnique = false;
+  while (!isUnique) {
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    orderNumber = `HAB-${randomSuffix}`;
+    const existing = await prisma.order.findUnique({ where: { orderNumber } });
+    if (!existing) isUnique = true;
+  }
 
   // Start Transaction
   const orderId = await prisma.$transaction(async (tx) => {
