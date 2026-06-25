@@ -52,7 +52,7 @@ export default async function AdminDashboardPage() {
     }),
     prisma.order.findMany({
       where: { status: { not: 'CANCELLED' }, createdAt: { gte: earliestRequiredDate } },
-      select: { createdAt: true, grandTotal: true, hireTotal: true, buyTotal: true, depositForfeited: true, type: true }
+      select: { createdAt: true, grandTotal: true, hireTotal: true, buyTotal: true, depositForfeited: true, type: true, discountAmount: true }
     }),
     prisma.order.findMany({
       where: { deliveryDate: { gte: todayStart, lt: new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000) }, driverId: { not: null }, status: { notIn: ['CANCELLED', 'COLLECTED'] } },
