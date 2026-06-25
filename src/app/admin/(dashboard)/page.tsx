@@ -82,19 +82,22 @@ export default async function AdminDashboardPage() {
   const outstandingTotal = Number(allTimeFinancials._sum?.grandTotal || 0) - Number(allTimeFinancials._sum?.amountPaid || 0);
 
   for (const o of recentOrders) {
+    const discount = Number(o.discountAmount || 0);
+    const isHire = o.type === 'HIRE';
+    
     if (o.createdAt >= todayStart) {
-      todayHire += Number(o.hireTotal);
-      todayBuy += Number(o.buyTotal);
+      todayHire += Number(o.hireTotal) - (isHire ? discount : 0);
+      todayBuy += Number(o.buyTotal) - (!isHire ? discount : 0);
       todayForfeited += Number(o.depositForfeited);
     }
     if (o.createdAt >= thisWeekStart) {
-      weekHire += Number(o.hireTotal);
-      weekBuy += Number(o.buyTotal);
+      weekHire += Number(o.hireTotal) - (isHire ? discount : 0);
+      weekBuy += Number(o.buyTotal) - (!isHire ? discount : 0);
       weekForfeited += Number(o.depositForfeited);
     }
     if (o.createdAt >= thisMonthStart) {
-      monthHire += Number(o.hireTotal);
-      monthBuy += Number(o.buyTotal);
+      monthHire += Number(o.hireTotal) - (isHire ? discount : 0);
+      monthBuy += Number(o.buyTotal) - (!isHire ? discount : 0);
       monthForfeited += Number(o.depositForfeited);
     }
     if (o.createdAt >= fourteenDaysAgo) {
