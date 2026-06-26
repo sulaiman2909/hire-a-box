@@ -259,6 +259,7 @@ export async function deleteOrder(orderId: string) {
     // Delete all relations manually since we don't have onDelete: Cascade
     await tx.emailLog.deleteMany({ where: { orderId } });
     await tx.orderItem.deleteMany({ where: { orderId } });
+    await tx.depositResolution.deleteMany({ where: { orderId } });
 
     // Finally delete the order
     await tx.order.delete({ where: { id: orderId } });
