@@ -45,6 +45,17 @@ export async function sendCustomerConfirmationEmail(order: EmailOrderData, custo
           </p>
 
           <h3>Order Summary</h3>
+          <ul style="padding-left: 20px; margin-bottom: 20px;">
+            ${order.items && order.items.length > 0 ? 
+              order.items.map((item) => `
+                <li style="margin-bottom: 5px;">
+                  <strong>${item.quantity}x</strong> ${item.product ? item.product.name : 'Unknown Product'} 
+                  ${item.product && item.product.spec ? `<span style="color: #666; font-size: 0.9em;">(${item.product.spec})</span>` : ''}
+                </li>
+              `).join('') :
+              '<li>No items found</li>'
+            }
+          </ul>
           <p>
             <strong>Total Paid:</strong> $${order.grandTotal.toFixed(2)}
           </p>
@@ -102,8 +113,6 @@ export async function sendDriverNotificationEmail(order: EmailOrderData, driverE
               '<li>No items found</li>'
             }
           </ul>
-          
-          <p>Please check your driver portal for full order details.</p>
         </div>
       `
     });
